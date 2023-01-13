@@ -1,17 +1,17 @@
 /*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.baomidou.mybatisplus.generator.config;
 
@@ -35,13 +35,7 @@ public interface ConstVal {
     String MAPPER = "Mapper";
     String XML = "Xml";
     String CONTROLLER = "Controller";
-
-    String ENTITY_PATH = "entity_path";
-    String SERVICE_PATH = "service_path";
-    String SERVICE_IMPL_PATH = "service_impl_path";
-    String MAPPER_PATH = "mapper_path";
-    String XML_PATH = "xml_path";
-    String CONTROLLER_PATH = "controller_path";
+    String PARENT = "Parent";
 
     String JAVA_TMPDIR = "java.io.tmpdir";
     String UTF8 = StandardCharsets.UTF_8.name();
@@ -51,13 +45,40 @@ public interface ConstVal {
     String KT_SUFFIX = ".kt";
     String XML_SUFFIX = ".xml";
 
+    /**
+     * 实体模板路径
+     */
     String TEMPLATE_ENTITY_JAVA = "/templates/entity.java";
+
+    /**
+     * 实体模板路径(kotlin模板)
+     */
     String TEMPLATE_ENTITY_KT = "/templates/entity.kt";
-    String TEMPLATE_MAPPER = "/templates/mapper.java";
-    String TEMPLATE_XML = "/templates/mapper.xml";
-    String TEMPLATE_SERVICE = "/templates/service.java";
-    String TEMPLATE_SERVICE_IMPL = "/templates/serviceImpl.java";
+
+    /**
+     * 控制器模板路径
+     */
     String TEMPLATE_CONTROLLER = "/templates/controller.java";
+
+    /**
+     * Mapper模板路径
+     */
+    String TEMPLATE_MAPPER = "/templates/mapper.java";
+
+    /**
+     * MapperXml模板路径
+     */
+    String TEMPLATE_XML = "/templates/mapper.xml";
+
+    /**
+     * Service模板路径
+     */
+    String TEMPLATE_SERVICE = "/templates/service.java";
+
+    /**
+     * ServiceImpl模板路径
+     */
+    String TEMPLATE_SERVICE_IMPL = "/templates/serviceImpl.java";
 
     String VM_LOAD_PATH_KEY = "file.resource.loader.class";
     String VM_LOAD_PATH_VALUE = "org.apache.velocity.runtime.resource.loader.ClasspathResourceLoader";

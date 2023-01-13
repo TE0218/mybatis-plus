@@ -25,15 +25,13 @@ import com.baomidou.mybatisplus.test.h2.entity.H2Student;
 import com.baomidou.mybatisplus.test.h2.enums.GenderEnum;
 import com.baomidou.mybatisplus.test.h2.enums.GradeEnum;
 import com.baomidou.mybatisplus.test.h2.mapper.H2StudentMapper;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import javax.annotation.Resource;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -101,7 +99,21 @@ class H2StudentMapperTest extends BaseTest {
         LambdaQueryWrapper<H2Student> wrapper = Wrappers.<H2Student>lambdaQuery().groupBy(H2Student::getAge);
         LambdaQueryWrapper<H2Student> wrapper2 = Wrappers.<H2Student>lambdaQuery().orderByAsc(H2Student::getAge);
         System.out.println(wrapper.getSqlSegment());
-        System.out.println(wrapper2.getSqlSegment());
+        Assertions.assertEquals(" GROUP BY age", wrapper.getSqlSegment());
+        Assertions.assertEquals(" ORDER BY age ASC", wrapper2.getSqlSegment());
+    }
+
+    @Test
+    void testDeleteByIdWithEntity() {
+        H2Student h2Student = new H2Student(111L, "测试根据实体删除", 12);
+        studentMapper.insert(h2Student);
+        Assertions.assertEquals(studentMapper.deleteById(h2Student), 1);
+    }
+
+    @Test
+    void testIn() {
+        LambdaQueryWrapper<H2Student> wrapper = Wrappers.<H2Student>lambdaQuery().in(H2Student::getName, Arrays.asList("a", "b"));
+        studentMapper.selectList(wrapper);
     }
 
 }

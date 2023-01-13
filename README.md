@@ -22,15 +22,32 @@
   </a>
 </p>
 
+[企业版 Mybatis-Mate 高级特性](https://gitee.com/baomidou/mybatis-mate-examples)
+
+添加 `微信 wx153666` 备注进 mp 群
+
+# Special user
+
+<p>
+  <a href="https://www.diboot.com/?from=mp" target="_blank">
+   <img alt="Mybatis-Plus-Logo" src="https://www.diboot.com/diboot_slogon.png" width="210px" height="75px">
+  </a>
+  <a href="http://aizuda.com/?from=mp" target="_blank">
+   <img alt="Mybatis-Plus-Logo" src="https://baomidou.com/img/aizuda.png" width="210px" height="75px">
+  </a>
+</p>
+
 ## What is MyBatis-Plus?
 
 MyBatis-Plus is an powerful enhanced toolkit of MyBatis for simplify development. This toolkit provides some efficient, useful, out-of-the-box features for MyBatis, use it can effectively save your development time.
 
 ## Links
 
--   [Documentation](https://mybatis.plus)
--   [Samples](https://github.com/baomidou/mybatis-plus-samples.git)
--   [Showcase](https://github.com/baomidou/awosome-mybaits-plus)
+- [Documentation](https://baomidou.com)
+- [Code Generator](https://github.com/baomidou/generator)
+- [Samples](https://github.com/baomidou/mybatis-plus-samples)
+- [Showcase](https://github.com/baomidou/awesome-mybatis-plus)
+- [企业版 Mybatis-Mate 高级特性](https://gitee.com/baomidou/mybatis-mate-examples)
 
 ## Features
 
@@ -50,18 +67,19 @@ MyBatis-Plus is an powerful enhanced toolkit of MyBatis for simplify development
 ## Getting started
 
 -   Add MyBatis-Plus dependency
-    -   Maven:
-        ```xml
-        <dependency>
-            <groupId>com.baomidou</groupId>
-            <artifactId>mybatis-plus-boot-starter</artifactId>
-            <version>3.2.0</version>
-        </dependency>
-        ```
-    -   Gradle
-        ```groovy
-        compile group: 'com.baomidou', name: 'mybatis-plus-boot-starter', version: '3.1.2'
-        ```
+    - Latest Version: [![Maven Central](https://img.shields.io/maven-central/v/com.baomidou/mybatis-plus.svg)](https://search.maven.org/search?q=g:com.baomidou%20a:mybatis-*)
+    - Maven:
+      ```xml
+      <dependency>
+          <groupId>com.baomidou</groupId>
+          <artifactId>mybatis-plus-boot-starter</artifactId>
+          <version>Latest Version</version>
+      </dependency>
+      ```
+    - Gradle
+      ```groovy
+      compile group: 'com.baomidou', name: 'mybatis-plus-boot-starter', version: 'Latest Version'
+      ```
 -   Modify mapper file extends BaseMapper interface
 
     ```java
@@ -70,20 +88,20 @@ MyBatis-Plus is an powerful enhanced toolkit of MyBatis for simplify development
     }
     ```
 
--   Use it
-    ```java
-    List<User> userList = userMapper.selectList(
-            new QueryWrapper<User>()
-                    .lambda()
-                    .ge(User::getAge, 18)
-    );
-    ```
+- Use it
+  ``` java
+  List<User> userList = userMapper.selectList(
+          new QueryWrapper<User>()
+                  .lambda()
+                  .ge(User::getAge, 18)
+  );
+  ```
     MyBatis-Plus will execute the following SQL
     ```sql
     SELECT * FROM user WHERE age >= 18
     ```
 
-> This showcase is just a small part of MyBatis-Plus features. If you want to learn more, please refer to the [documentation](https://mybatis.plus).
+> This showcase is just a small part of MyBatis-Plus features. If you want to learn more, please refer to the [documentation](https://baomidou.com).
 
 ## License
 

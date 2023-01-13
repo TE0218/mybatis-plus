@@ -3,13 +3,15 @@ package ${package.Entity};
 <#list table.importPackages as pkg>
 import ${pkg};
 </#list>
-<#if swagger2>
+<#if springdoc>
+import io.swagger.v3.oas.annotations.media.Schema;
+<#elseif swagger>
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 </#if>
 <#if entityLombokModel>
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
     <#if chainModel>
 import lombok.experimental.Accessors;
     </#if>
@@ -24,31 +26,31 @@ import lombok.experimental.Accessors;
  * @since ${date}
  */
 <#if entityLombokModel>
-@Data
-    <#if superEntityClass??>
-@EqualsAndHashCode(callSuper = true)
-    <#else>
-@EqualsAndHashCode(callSuper = false)
-    </#if>
+@Getter
+@Setter
     <#if chainModel>
 @Accessors(chain = true)
     </#if>
 </#if>
 <#if table.convert>
-@TableName("${table.name}")
+@TableName("${schemaName}${table.name}")
 </#if>
-<#if swagger2>
-@ApiModel(value="${entity}对象", description="${table.comment!}")
+<#if springdoc>
+@Schema(name = "${entity}", description = "$!{table.comment}")
+<#elseif swagger>
+@ApiModel(value = "${entity}对象", description = "${table.comment!}")
 </#if>
 <#if superEntityClass??>
 public class ${entity} extends ${superEntityClass}<#if activeRecord><${entity}></#if> {
 <#elseif activeRecord>
 public class ${entity} extends Model<${entity}> {
-<#else>
+<#elseif entitySerialVersionUID>
 public class ${entity} implements Serializable {
+<#else>
+public class ${entity} {
 </#if>
-
 <#if entitySerialVersionUID>
+
     private static final long serialVersionUID = 1L;
 </#if>
 <#-- ----------  BEGIN 字段循环遍历  ---------->
@@ -58,8 +60,10 @@ public class ${entity} implements Serializable {
     </#if>
 
     <#if field.comment!?length gt 0>
-        <#if swagger2>
-    @ApiModelProperty(value = "${field.comment}")
+        <#if springdoc>
+    @Schema(description = "${field.comment}")
+        <#elseif swagger>
+    @ApiModelProperty("${field.comment}")
         <#else>
     /**
      * ${field.comment}
@@ -87,17 +91,16 @@ public class ${entity} implements Serializable {
     @TableField("${field.annotationColumnName}")
     </#if>
     <#-- 乐观锁注解 -->
-    <#if (versionFieldName!"") == field.name>
+    <#if field.versionField>
     @Version
     </#if>
     <#-- 逻辑删除注解 -->
-    <#if (logicDeleteFieldName!"") == field.name>
+    <#if field.logicDeleteField>
     @TableLogic
     </#if>
     private ${field.propertyType} ${field.propertyName};
 </#list>
 <#------------  END 字段循环遍历  ---------->
-
 <#if !entityLombokModel>
     <#list table.fields as field>
         <#if field.propertyType == "boolean">
@@ -105,6 +108,7 @@ public class ${entity} implements Serializable {
         <#else>
             <#assign getprefix="get"/>
         </#if>
+
     public ${field.propertyType} ${getprefix}${field.capitalName}() {
         return ${field.propertyName};
     }
@@ -121,33 +125,33 @@ public class ${entity} implements Serializable {
     }
     </#list>
 </#if>
-
 <#if entityColumnConstant>
     <#list table.fields as field>
-    public static final String ${field.name?upper_case} = "${field.name}";
 
+    public static final String ${field.name?upper_case} = "${field.name}";
     </#list>
 </#if>
 <#if activeRecord>
+
     @Override
-    protected Serializable pkVal() {
+    public Serializable pkVal() {
     <#if keyPropertyName??>
         return this.${keyPropertyName};
     <#else>
         return null;
     </#if>
     }
-
 </#if>
 <#if !entityLombokModel>
+
     @Override
     public String toString() {
         return "${entity}{" +
     <#list table.fields as field>
         <#if field_index==0>
-            "${field.propertyName}=" + ${field.propertyName} +
+            "${field.propertyName} = " + ${field.propertyName} +
         <#else>
-            ", ${field.propertyName}=" + ${field.propertyName} +
+            ", ${field.propertyName} = " + ${field.propertyName} +
         </#if>
     </#list>
         "}";

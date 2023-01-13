@@ -1,17 +1,17 @@
 /*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.baomidou.mybatisplus.extension.conditions.update;
 
@@ -31,17 +31,26 @@ import com.baomidou.mybatisplus.extension.conditions.AbstractChainWrapper;
 public class UpdateChainWrapper<T> extends AbstractChainWrapper<T, String, UpdateChainWrapper<T>, UpdateWrapper<T>>
     implements ChainUpdate<T>, Update<UpdateChainWrapper<T>, String> {
 
-    private BaseMapper<T> baseMapper;
+    private final BaseMapper<T> baseMapper;
+    private final Class<T> entityClass;
 
     public UpdateChainWrapper(BaseMapper<T> baseMapper) {
         super();
         this.baseMapper = baseMapper;
+        this.entityClass = null;
+        super.wrapperChildren = new UpdateWrapper<>();
+    }
+
+    public UpdateChainWrapper(Class<T> entityClass) {
+        super();
+        this.baseMapper = null;
+        this.entityClass = entityClass;
         super.wrapperChildren = new UpdateWrapper<>();
     }
 
     @Override
-    public UpdateChainWrapper<T> set(boolean condition, String column, Object val) {
-        wrapperChildren.set(condition, column, val);
+    public UpdateChainWrapper<T> set(boolean condition, String column, Object val, String mapping) {
+        wrapperChildren.set(condition, column, val, mapping);
         return typedThis;
     }
 
@@ -59,5 +68,10 @@ public class UpdateChainWrapper<T> extends AbstractChainWrapper<T, String, Updat
     @Override
     public BaseMapper<T> getBaseMapper() {
         return baseMapper;
+    }
+
+    @Override
+    public Class<T> getEntityClass() {
+        return entityClass;
     }
 }

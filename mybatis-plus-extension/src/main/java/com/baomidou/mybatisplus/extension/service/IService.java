@@ -1,17 +1,17 @@
 /*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.baomidou.mybatisplus.extension.service;
 
@@ -21,10 +21,14 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.toolkit.Assert;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.conditions.query.ChainQuery;
 import com.baomidou.mybatisplus.extension.conditions.query.LambdaQueryChainWrapper;
 import com.baomidou.mybatisplus.extension.conditions.query.QueryChainWrapper;
+import com.baomidou.mybatisplus.extension.conditions.update.ChainUpdate;
 import com.baomidou.mybatisplus.extension.conditions.update.LambdaUpdateChainWrapper;
 import com.baomidou.mybatisplus.extension.conditions.update.UpdateChainWrapper;
+import com.baomidou.mybatisplus.extension.kotlin.KtQueryChainWrapper;
+import com.baomidou.mybatisplus.extension.kotlin.KtUpdateChainWrapper;
 import com.baomidou.mybatisplus.extension.toolkit.ChainWrappers;
 import com.baomidou.mybatisplus.extension.toolkit.SqlHelper;
 import org.springframework.transaction.annotation.Transactional;
@@ -105,6 +109,28 @@ public interface IService<T> {
     }
 
     /**
+     * 根据 ID 删除
+     *
+     * @param id      主键(类型必须与实体类型字段保持一致)
+     * @param useFill 是否启用填充(为true的情况,会将入参转换实体进行delete删除)
+     * @return 删除结果
+     * @since 3.5.0
+     */
+    default boolean removeById(Serializable id, boolean useFill) {
+        throw new UnsupportedOperationException("不支持的方法!");
+    }
+
+    /**
+     * 根据实体(ID)删除
+     *
+     * @param entity 实体
+     * @since 3.4.4
+     */
+    default boolean removeById(T entity) {
+        return SqlHelper.retBool(getBaseMapper().deleteById(entity));
+    }
+
+    /**
      * 根据 columnMap 条件，删除记录
      *
      * @param columnMap 表字段 map 对象
@@ -126,13 +152,82 @@ public interface IService<T> {
     /**
      * 删除（根据ID 批量删除）
      *
-     * @param idList 主键ID列表
+     * @param list 主键ID或实体列表
      */
-    default boolean removeByIds(Collection<? extends Serializable> idList) {
-        if (CollectionUtils.isEmpty(idList)) {
+    default boolean removeByIds(Collection<?> list) {
+        if (CollectionUtils.isEmpty(list)) {
             return false;
         }
-        return SqlHelper.retBool(getBaseMapper().deleteBatchIds(idList));
+        return SqlHelper.retBool(getBaseMapper().deleteBatchIds(list));
+    }
+
+    /**
+     * 批量删除
+     *
+     * @param list    主键ID或实体列表
+     * @param useFill 是否填充(为true的情况,会将入参转换实体进行delete删除)
+     * @return 删除结果
+     * @since 3.5.0
+     */
+    @Transactional(rollbackFor = Exception.class)
+    default boolean removeByIds(Collection<?> list, boolean useFill) {
+        if (CollectionUtils.isEmpty(list)) {
+            return false;
+        }
+        if (useFill) {
+            return removeBatchByIds(list, true);
+        }
+        return SqlHelper.retBool(getBaseMapper().deleteBatchIds(list));
+    }
+
+    /**
+     * 批量删除(jdbc批量提交)
+     *
+     * @param list 主键ID或实体列表(主键ID类型必须与实体类型字段保持一致)
+     * @return 删除结果
+     * @since 3.5.0
+     */
+    @Transactional(rollbackFor = Exception.class)
+    default boolean removeBatchByIds(Collection<?> list) {
+        return removeBatchByIds(list, DEFAULT_BATCH_SIZE);
+    }
+
+    /**
+     * 批量删除(jdbc批量提交)
+     *
+     * @param list    主键ID或实体列表(主键ID类型必须与实体类型字段保持一致)
+     * @param useFill 是否启用填充(为true的情况,会将入参转换实体进行delete删除)
+     * @return 删除结果
+     * @since 3.5.0
+     */
+    @Transactional(rollbackFor = Exception.class)
+    default boolean removeBatchByIds(Collection<?> list, boolean useFill) {
+        return removeBatchByIds(list, DEFAULT_BATCH_SIZE, useFill);
+    }
+
+    /**
+     * 批量删除(jdbc批量提交)
+     *
+     * @param list      主键ID或实体列表
+     * @param batchSize 批次大小
+     * @return 删除结果
+     * @since 3.5.0
+     */
+    default boolean removeBatchByIds(Collection<?> list, int batchSize) {
+        throw new UnsupportedOperationException("不支持的方法!");
+    }
+
+    /**
+     * 批量删除(jdbc批量提交)
+     *
+     * @param list      主键ID或实体列表
+     * @param batchSize 批次大小
+     * @param useFill   是否启用填充(为true的情况,会将入参转换实体进行delete删除)
+     * @return 删除结果
+     * @since 3.5.0
+     */
+    default boolean removeBatchByIds(Collection<?> list, int batchSize, boolean useFill) {
+        throw new UnsupportedOperationException("不支持的方法!");
     }
 
     /**
@@ -253,7 +348,7 @@ public interface IService<T> {
      *
      * @see Wrappers#emptyWrapper()
      */
-    default int count() {
+    default long count() {
         return count(Wrappers.emptyWrapper());
     }
 
@@ -262,7 +357,7 @@ public interface IService<T> {
      *
      * @param queryWrapper 实体对象封装操作类 {@link com.baomidou.mybatisplus.core.conditions.query.QueryWrapper}
      */
-    default int count(Wrapper<T> queryWrapper) {
+    default long count(Wrapper<T> queryWrapper) {
         return SqlHelper.retCount(getBaseMapper().selectCount(queryWrapper));
     }
 
@@ -385,13 +480,20 @@ public interface IService<T> {
     BaseMapper<T> getBaseMapper();
 
     /**
+     * 获取 entity 的 class
+     *
+     * @return {@link Class<T>}
+     */
+    Class<T> getEntityClass();
+
+    /**
      * 以下的方法使用介绍:
      *
      * 一. 名称介绍
      * 1. 方法名带有 query 的为对数据的查询操作, 方法名带有 update 的为对数据的修改操作
      * 2. 方法名带有 lambda 的为内部方法入参 column 支持函数式的
-     *
      * 二. 支持介绍
+     *
      * 1. 方法名带有 query 的支持以 {@link ChainQuery} 内部的方法名结尾进行数据查询操作
      * 2. 方法名带有 update 的支持以 {@link ChainUpdate} 内部的方法名为结尾进行数据修改操作
      *
@@ -417,7 +519,38 @@ public interface IService<T> {
      * @return LambdaQueryWrapper 的包装类
      */
     default LambdaQueryChainWrapper<T> lambdaQuery() {
-        return ChainWrappers.lambdaQueryChain(getBaseMapper());
+        return ChainWrappers.lambdaQueryChain(getBaseMapper(), getEntityClass());
+    }
+
+    /**
+     * 链式查询 lambda 式
+     * <p>注意：不支持 Kotlin </p>
+     *
+     * @param entity 实体对象
+     * @return LambdaQueryWrapper 的包装类
+     */
+    default LambdaQueryChainWrapper<T> lambdaQuery(T entity) {
+        return ChainWrappers.lambdaQueryChain(getBaseMapper(), entity);
+    }
+
+    /**
+     * 链式查询 lambda 式
+     * kotlin 使用
+     *
+     * @return KtQueryWrapper 的包装类
+     */
+    default KtQueryChainWrapper<T> ktQuery() {
+        return ChainWrappers.ktQueryChain(getBaseMapper(), getEntityClass());
+    }
+
+    /**
+     * 链式查询 lambda 式
+     * kotlin 使用
+     *
+     * @return KtQueryWrapper 的包装类
+     */
+    default KtUpdateChainWrapper<T> ktUpdate() {
+        return ChainWrappers.ktUpdateChain(getBaseMapper(), getEntityClass());
     }
 
     /**

@@ -1,19 +1,21 @@
 /*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.baomidou.mybatisplus.extension.conditions.query;
+
+import java.util.function.Predicate;
 
 import com.baomidou.mybatisplus.core.conditions.query.Query;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -21,8 +23,6 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.core.toolkit.ExceptionUtils;
 import com.baomidou.mybatisplus.extension.conditions.AbstractChainWrapper;
-
-import java.util.function.Predicate;
 
 /**
  * Query Chain Wrapper
@@ -34,11 +34,20 @@ import java.util.function.Predicate;
 public class QueryChainWrapper<T> extends AbstractChainWrapper<T, String, QueryChainWrapper<T>, QueryWrapper<T>>
     implements ChainQuery<T>, Query<QueryChainWrapper<T>, T, String> {
 
-    private BaseMapper<T> baseMapper;
+    private final BaseMapper<T> baseMapper;
+    private final Class<T> entityClass;
 
     public QueryChainWrapper(BaseMapper<T> baseMapper) {
         super();
         this.baseMapper = baseMapper;
+        this.entityClass = null;
+        super.wrapperChildren = new QueryWrapper<>();
+    }
+
+    public QueryChainWrapper(Class<T> entityClass) {
+        super();
+        this.baseMapper = null;
+        this.entityClass = entityClass;
         super.wrapperChildren = new QueryWrapper<>();
     }
 
@@ -62,5 +71,15 @@ public class QueryChainWrapper<T> extends AbstractChainWrapper<T, String, QueryC
     @Override
     public BaseMapper<T> getBaseMapper() {
         return baseMapper;
+    }
+
+    /**
+     * 获取当前实体Class
+     *
+     * @return Class
+     */
+    @Override
+    public Class<T> getEntityClass() {
+        return entityClass;
     }
 }

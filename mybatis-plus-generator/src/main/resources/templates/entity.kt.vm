@@ -3,10 +3,13 @@ package ${package.Entity};
 #foreach($pkg in ${table.importPackages})
 import ${pkg};
 #end
-#if(${swagger2})
+#if(${springdoc})
+import io.swagger.v3.oas.annotations.media.Schema;
+#elseif(${swagger})
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 #end
+
 /**
  * <p>
  * $!{table.comment}
@@ -16,17 +19,21 @@ import io.swagger.annotations.ApiModelProperty;
  * @since ${date}
  */
 #if(${table.convert})
-@TableName("${table.name}")
+@TableName("${schemaName}${table.name}")
 #end
-#if(${swagger2})
-@ApiModel(value="${entity}对象", description="$!{table.comment}")
+#if(${springdoc})
+@Schema(name = "${entity}", description = "$!{table.comment}")
+#elseif(${swagger})
+@ApiModel(value = "${entity}对象", description = "$!{table.comment}")
 #end
 #if(${superEntityClass})
 class ${entity} : ${superEntityClass}#if(${activeRecord})<${entity}>#end() {
 #elseif(${activeRecord})
 class ${entity} : Model<${entity}>() {
-#else
+#elseif(${entitySerialVersionUID})
 class ${entity} : Serializable {
+#else
+class ${entity} {
 #end
 
 ## ----------  BEGIN 字段循环遍历  ----------
@@ -35,8 +42,10 @@ class ${entity} : Serializable {
 #set($keyPropertyName=${field.propertyName})
 #end
 #if("$!field.comment" != "")
-    #if(${swagger2})
-    @ApiModelProperty(value = "${field.comment}")
+    #if(${springdoc})
+    @Schema(description = "${field.comment}")
+    #elseif(${swagger})
+    @ApiModelProperty("${field.comment}")
     #else
     /**
      * ${field.comment}
@@ -64,11 +73,11 @@ class ${entity} : Serializable {
     @TableField("${field.annotationColumnName}")
 #end
 ## 乐观锁注解
-#if(${versionFieldName}==${field.name})
+#if(${field.versionField})
     @Version
 #end
 ## 逻辑删除注解
-#if(${logicDeleteFieldName}==${field.name})
+#if(${field.logicDeleteField})
     @TableLogic
 #end
     #if(${field.propertyType} == "Integer")
@@ -76,10 +85,9 @@ class ${entity} : Serializable {
     #else
     var ${field.propertyName}: ${field.propertyType}? = null
     #end
+
 #end
 ## ----------  END 字段循环遍历  ----------
-
-
 #if(${entityColumnConstant})
     companion object {
 #foreach($field in ${table.fields})

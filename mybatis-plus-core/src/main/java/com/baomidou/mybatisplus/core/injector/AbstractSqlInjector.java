@@ -1,33 +1,30 @@
 /*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.baomidou.mybatisplus.core.injector;
 
+import com.baomidou.mybatisplus.core.mapper.Mapper;
 import com.baomidou.mybatisplus.core.metadata.TableInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
-import com.baomidou.mybatisplus.core.toolkit.ArrayUtils;
 import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.GlobalConfigUtils;
+import com.baomidou.mybatisplus.core.toolkit.ReflectionKit;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.logging.Log;
 import org.apache.ibatis.logging.LogFactory;
 
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.lang.reflect.TypeVariable;
-import java.lang.reflect.WildcardType;
 import java.util.List;
 import java.util.Set;
 
@@ -39,18 +36,18 @@ import java.util.Set;
  */
 public abstract class AbstractSqlInjector implements ISqlInjector {
 
-    private static final Log logger = LogFactory.getLog(AbstractSqlInjector.class);
+    protected final Log logger = LogFactory.getLog(this.getClass());
 
     @Override
     public void inspectInject(MapperBuilderAssistant builderAssistant, Class<?> mapperClass) {
-        Class<?> modelClass = extractModelClass(mapperClass);
+        Class<?> modelClass = ReflectionKit.getSuperClassGenericType(mapperClass, Mapper.class, 0);
         if (modelClass != null) {
             String className = mapperClass.toString();
             Set<String> mapperRegistryCache = GlobalConfigUtils.getMapperRegistryCache(builderAssistant.getConfiguration());
             if (!mapperRegistryCache.contains(className)) {
-                List<AbstractMethod> methodList = this.getMethodList(mapperClass);
+                TableInfo tableInfo = TableInfoHelper.initTableInfo(builderAssistant, modelClass);
+                List<AbstractMethod> methodList = this.getMethodList(mapperClass, tableInfo);
                 if (CollectionUtils.isNotEmpty(methodList)) {
-                    TableInfo tableInfo = TableInfoHelper.initTableInfo(builderAssistant, modelClass);
                     // 循环注入自定义方法
                     methodList.forEach(m -> m.inject(builderAssistant, mapperClass, modelClass, tableInfo));
                 } else {
@@ -70,33 +67,6 @@ public abstract class AbstractSqlInjector implements ISqlInjector {
      * @return 注入的方法集合
      * @since 3.1.2 add  mapperClass
      */
-    public abstract List<AbstractMethod> getMethodList(Class<?> mapperClass);
+    public abstract List<AbstractMethod> getMethodList(Class<?> mapperClass,TableInfo tableInfo);
 
-    /**
-     * 提取泛型模型,多泛型的时候请将泛型T放在第一位
-     *
-     * @param mapperClass mapper 接口
-     * @return mapper 泛型
-     */
-    protected Class<?> extractModelClass(Class<?> mapperClass) {
-        Type[] types = mapperClass.getGenericInterfaces();
-        ParameterizedType target = null;
-        for (Type type : types) {
-            if (type instanceof ParameterizedType) {
-                Type[] typeArray = ((ParameterizedType) type).getActualTypeArguments();
-                if (ArrayUtils.isNotEmpty(typeArray)) {
-                    for (Type t : typeArray) {
-                        if (t instanceof TypeVariable || t instanceof WildcardType) {
-                            break;
-                        } else {
-                            target = (ParameterizedType) type;
-                            break;
-                        }
-                    }
-                }
-                break;
-            }
-        }
-        return target == null ? null : (Class<?>) target.getActualTypeArguments()[0];
-    }
 }

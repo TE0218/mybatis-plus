@@ -3,10 +3,13 @@ package ${package.Entity}
 <#list table.importPackages as pkg>
 import ${pkg}
 </#list>
-<#if swagger2>
+<#if springdoc>
+import io.swagger.v3.oas.annotations.media.Schema;
+<#elseif swagger>
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 </#if>
+
 /**
  * <p>
  * ${table.comment}
@@ -16,17 +19,21 @@ import io.swagger.annotations.ApiModelProperty;
  * @since ${date}
  */
 <#if table.convert>
-@TableName("${table.name}")
+@TableName("${schemaName}${table.name}")
 </#if>
-<#if swagger2>
-@ApiModel(value="${entity}对象", description="${table.comment!}")
+<#if springdoc>
+@Schema(name = "${entity}", description = "$!{table.comment}")
+<#elseif swagger>
+@ApiModel(value = "${entity}对象", description = "${table.comment!}")
 </#if>
 <#if superEntityClass??>
-class ${entity} : ${superEntityClass}<#if activeRecord><${entity}></#if> {
+class ${entity} : ${superEntityClass}<#if activeRecord><${entity}></#if>() {
 <#elseif activeRecord>
 class ${entity} : Model<${entity}>() {
-<#else>
+<#elseif entitySerialVersionUID>
 class ${entity} : Serializable {
+<#else>
+class ${entity} {
 </#if>
 
 <#-- ----------  BEGIN 字段循环遍历  ---------->
@@ -34,15 +41,16 @@ class ${entity} : Serializable {
 <#if field.keyFlag>
     <#assign keyPropertyName="${field.propertyName}"/>
 </#if>
-
 <#if field.comment!?length gt 0>
-<#if swagger2>
-        @ApiModelProperty(value = "${field.comment}")
-<#else>
+    <#if springdoc>
+    @Schema(description = "${field.comment}")
+    <#elseif swagger>
+    @ApiModelProperty("${field.comment}")
+    <#else>
     /**
      * ${field.comment}
      */
-</#if>
+    </#if>
 </#if>
 <#if field.keyFlag>
 <#-- 主键 -->
@@ -65,11 +73,11 @@ class ${entity} : Serializable {
     @TableField("${field.annotationColumnName}")
 </#if>
 <#-- 乐观锁注解 -->
-<#if (versionFieldName!"") == field.name>
+<#if field.versionField>
     @Version
 </#if>
 <#-- 逻辑删除注解 -->
-<#if (logicDeleteFieldName!"") == field.name>
+<#if field.logicDeleteField>
     @TableLogic
 </#if>
     <#if field.propertyType == "Integer">
@@ -77,10 +85,9 @@ class ${entity} : Serializable {
     <#else>
     var ${field.propertyName}: ${field.propertyType}? = null
     </#if>
+
 </#list>
 <#-- ----------  END 字段循环遍历  ---------->
-
-
 <#if entityColumnConstant>
     companion object {
 <#list table.fields as field>

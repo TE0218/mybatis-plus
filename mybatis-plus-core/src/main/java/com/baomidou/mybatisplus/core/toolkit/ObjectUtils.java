@@ -1,22 +1,23 @@
 /*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.baomidou.mybatisplus.core.toolkit;
 
 import java.lang.reflect.Array;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.Map;
 
 /**
@@ -32,7 +33,7 @@ public class ObjectUtils {
      */
     public static boolean isNull(Object... objs) {
         for (Object obj : objs) {
-            if (ObjectUtils.isEmpty(obj)) {
+            if (isEmpty(obj)) {
                 return true;
             }
         }
@@ -43,14 +44,14 @@ public class ObjectUtils {
      * 判断object是否不为空,集合会校验size
      */
     public static boolean isNotNull(Object... obj) {
-        return !ObjectUtils.isNull(obj);
+        return !isNull(obj);
     }
 
     /**
      * 对象非空判断
      */
     public static boolean isNotEmpty(Object obj) {
-        return !ObjectUtils.isEmpty(obj);
+        return !isEmpty(obj);
     }
 
     /**
@@ -72,6 +73,12 @@ public class ObjectUtils {
         }
         if (obj instanceof Map) {
             return ((Map<?, ?>) obj).isEmpty();
+        }
+        if (obj instanceof Iterable) {
+            return !((Iterable<?>) obj).iterator().hasNext();
+        }
+        if (obj instanceof Iterator) {
+            return !((Iterator<?>) obj).hasNext();
         }
         // else
         return false;

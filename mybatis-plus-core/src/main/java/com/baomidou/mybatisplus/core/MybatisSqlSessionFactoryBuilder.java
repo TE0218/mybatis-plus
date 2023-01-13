@@ -1,17 +1,17 @@
 /*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.baomidou.mybatisplus.core;
 
@@ -79,21 +79,16 @@ public class MybatisSqlSessionFactoryBuilder extends SqlSessionFactoryBuilder {
 
     // TODO 使用自己的逻辑,注入必须组件
     @Override
-    public SqlSessionFactory build(Configuration config) {
-        MybatisConfiguration configuration = (MybatisConfiguration) config;
+    public SqlSessionFactory build(Configuration configuration) {
         GlobalConfig globalConfig = GlobalConfigUtils.getGlobalConfig(configuration);
+
         final IdentifierGenerator identifierGenerator;
-        if (globalConfig.getIdentifierGenerator() == null) {
-            if (null != globalConfig.getWorkerId() && null != globalConfig.getDatacenterId()) {
-                identifierGenerator = new DefaultIdentifierGenerator(globalConfig.getWorkerId(), globalConfig.getDatacenterId());
-            } else {
-                identifierGenerator = new DefaultIdentifierGenerator();
-            }
+        if (null == globalConfig.getIdentifierGenerator()) {
+            identifierGenerator = new DefaultIdentifierGenerator();
             globalConfig.setIdentifierGenerator(identifierGenerator);
         } else {
             identifierGenerator = globalConfig.getIdentifierGenerator();
         }
-        //TODO 这里只是为了兼容下,并没多大重要,方法标记过时了.
         IdWorker.setIdentifierGenerator(identifierGenerator);
 
         if (globalConfig.isEnableSqlRunner()) {

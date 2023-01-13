@@ -1,26 +1,26 @@
 /*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.baomidou.mybatisplus.extension.conditions.query;
+
+import java.util.List;
+import java.util.Optional;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.conditions.ChainWrapper;
 import com.baomidou.mybatisplus.extension.toolkit.SqlHelper;
-
-import java.util.List;
-import java.util.Optional;
 
 /**
  * 具有查询方法的定义
@@ -36,7 +36,7 @@ public interface ChainQuery<T> extends ChainWrapper<T> {
      * @return 集合
      */
     default List<T> list() {
-        return getBaseMapper().selectList(getWrapper());
+        return execute(mapper -> mapper.selectList(getWrapper()));
     }
 
     /**
@@ -45,7 +45,7 @@ public interface ChainQuery<T> extends ChainWrapper<T> {
      * @return 单个
      */
     default T one() {
-        return getBaseMapper().selectOne(getWrapper());
+        return execute(mapper -> mapper.selectOne(getWrapper()));
     }
 
     /**
@@ -63,8 +63,17 @@ public interface ChainQuery<T> extends ChainWrapper<T> {
      *
      * @return count
      */
-    default Integer count() {
-        return SqlHelper.retCount(getBaseMapper().selectCount(getWrapper()));
+    default Long count() {
+        return execute(mapper -> SqlHelper.retCount(mapper.selectCount(getWrapper())));
+    }
+
+    /**
+     * 判断数据是否存在
+     *
+     * @return true 存在 false 不存在
+     */
+    default boolean exists() {
+        return this.count() > 0;
     }
 
     /**
@@ -74,6 +83,6 @@ public interface ChainQuery<T> extends ChainWrapper<T> {
      * @return 分页数据
      */
     default <E extends IPage<T>> E page(E page) {
-        return getBaseMapper().selectPage(page, getWrapper());
+        return execute(mapper -> mapper.selectPage(page, getWrapper()));
     }
 }

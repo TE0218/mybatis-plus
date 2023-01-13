@@ -1,19 +1,21 @@
 /*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.baomidou.mybatisplus.core.toolkit;
+
+import org.apache.ibatis.io.Resources;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -31,7 +33,15 @@ import java.util.List;
  */
 public final class ClassUtils {
 
-    private static final char PACKAGE_SEPARATOR = '.';
+    private static ClassLoader systemClassLoader;
+
+    static {
+        try {
+            systemClassLoader = ClassLoader.getSystemClassLoader();
+        } catch (SecurityException ignored) {
+            // AccessControlException on Google App Engine
+        }
+    }
 
     /**
      * 代理 class 的名称
@@ -82,6 +92,7 @@ public final class ClassUtils {
      * @return 如果是代理的class，返回父 class，否则返回自身
      */
     public static Class<?> getUserClass(Class<?> clazz) {
+        Assert.notNull(clazz, "Class must not be null");
         return isProxy(clazz) ? clazz.getSuperclass() : clazz;
     }
 
@@ -94,7 +105,7 @@ public final class ClassUtils {
      * @return 返回对象的 user class
      */
     public static Class<?> getUserClass(Object object) {
-        Assert.notNull(object, "Error: Instance must not be null");
+        Assert.notNull(object, "Instance must not be null");
         return getUserClass(object.getClass());
     }
 
@@ -119,7 +130,7 @@ public final class ClassUtils {
             throw ExceptionUtils.mpe("实例化对象时出现错误,请尝试给 %s 添加无参的构造方法", e, clazz.getName());
         }
     }
-    
+
     /**
      * 实例化对象.
      *
@@ -132,7 +143,7 @@ public final class ClassUtils {
     public static <T> T newInstance(String clazzName) {
         return (T) newInstance(toClassConfident(clazzName));
     }
-    
+
 
     /**
      * <p>
@@ -143,15 +154,34 @@ public final class ClassUtils {
      * @return 返回转换后的 Class
      */
     public static Class<?> toClassConfident(String name) {
+        return toClassConfident(name, null);
+    }
+
+    /**
+     * @param name
+     * @param classLoader
+     * @return
+     * @since 3.4.3
+     */
+    public static Class<?> toClassConfident(String name, ClassLoader classLoader) {
         try {
-            return Class.forName(name, false, getDefaultClassLoader());
+            return loadClass(name, getClassLoaders(classLoader));
         } catch (ClassNotFoundException e) {
-            try {
-                return Class.forName(name);
-            } catch (ClassNotFoundException ex) {
-                throw ExceptionUtils.mpe("找不到指定的class！请仅在明确确定会有 class 的时候，调用该方法", e);
+            throw ExceptionUtils.mpe("找不到指定的class！请仅在明确确定会有 class 的时候，调用该方法", e);
+        }
+    }
+
+    private static Class<?> loadClass(String className, ClassLoader[] classLoaders) throws ClassNotFoundException {
+        for (ClassLoader classLoader : classLoaders) {
+            if (classLoader != null) {
+                try {
+                    return Class.forName(className, true, classLoader);
+                } catch (ClassNotFoundException e) {
+                    // ignore
+                }
             }
         }
+        throw new ClassNotFoundException("Cannot find class: " + className);
     }
 
 
@@ -178,10 +208,10 @@ public final class ClassUtils {
      */
     public static String getPackageName(String fqClassName) {
         Assert.notNull(fqClassName, "Class name must not be null");
-        int lastDotIndex = fqClassName.lastIndexOf(PACKAGE_SEPARATOR);
-        return (lastDotIndex != -1 ? fqClassName.substring(0, lastDotIndex) : "");
+        int lastDotIndex = fqClassName.lastIndexOf(StringPool.DOT);
+        return (lastDotIndex != -1 ? fqClassName.substring(0, lastDotIndex) : StringPool.EMPTY);
     }
-    
+
     /**
      * Return the default ClassLoader to use: typically the thread context
      * ClassLoader, if available; the ClassLoader that loaded the ClassUtils
@@ -198,6 +228,7 @@ public final class ClassUtils {
      * @see ClassLoader#getSystemClassLoader()
      * @since 3.3.2
      */
+    @Deprecated
     public static ClassLoader getDefaultClassLoader() {
         ClassLoader cl = null;
         try {
@@ -219,5 +250,13 @@ public final class ClassUtils {
         }
         return cl;
     }
-    
+
+    private static ClassLoader[] getClassLoaders(ClassLoader classLoader) {
+        return new ClassLoader[]{
+            classLoader,
+            Resources.getDefaultClassLoader(),
+            Thread.currentThread().getContextClassLoader(),
+            ClassUtils.class.getClassLoader(),
+            systemClassLoader};
+    }
 }

@@ -1,30 +1,31 @@
 /*
- * Copyright (c) 2011-2020, baomidou (jobob@qq.com).
- * <p>
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- * <p>
- * https://www.apache.org/licenses/LICENSE-2.0
- * <p>
+ * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.baomidou.mybatisplus.core.toolkit;
+
+import org.apache.ibatis.logging.Log;
+import org.apache.ibatis.logging.LogFactory;
 
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.concurrent.ThreadLocalRandom;
 
-import org.apache.ibatis.logging.Log;
-import org.apache.ibatis.logging.LogFactory;
-
 /**
- * 分布式高效有序ID生产黑科技(sequence)
+ * 分布式高效有序 ID 生产黑科技(sequence)
+ *
  * <p>优化开源项目：https://gitee.com/yu120/sequence</p>
  *
  * @author hubin
@@ -36,7 +37,7 @@ public class Sequence {
     /**
      * 时间起始标记点，作为基准，一般取系统的最近时间（一旦确定不能变动）
      */
-    private final long twepoch = 1288834974657L;
+    private static final long twepoch = 1288834974657L;
     /**
      * 机器标识位数
      */
@@ -70,8 +71,13 @@ public class Sequence {
      * 上次生产 ID 时间戳
      */
     private long lastTimestamp = -1L;
+    /**
+     * IP 地址
+     */
+    private InetAddress inetAddress;
 
-    public Sequence() {
+    public Sequence(InetAddress inetAddress) {
+        this.inetAddress = inetAddress;
         this.datacenterId = getDatacenterId(maxDatacenterId);
         this.workerId = getMaxWorkerId(datacenterId, maxWorkerId);
     }
@@ -94,7 +100,7 @@ public class Sequence {
     /**
      * 获取 maxWorkerId
      */
-    protected static long getMaxWorkerId(long datacenterId, long maxWorkerId) {
+    protected long getMaxWorkerId(long datacenterId, long maxWorkerId) {
         StringBuilder mpid = new StringBuilder();
         mpid.append(datacenterId);
         String name = ManagementFactory.getRuntimeMXBean().getName();
@@ -113,17 +119,19 @@ public class Sequence {
     /**
      * 数据标识id部分
      */
-    protected static long getDatacenterId(long maxDatacenterId) {
+    protected long getDatacenterId(long maxDatacenterId) {
         long id = 0L;
         try {
-            InetAddress ip = InetAddress.getLocalHost();
-            NetworkInterface network = NetworkInterface.getByInetAddress(ip);
-            if (network == null) {
+            if (null == this.inetAddress) {
+                this.inetAddress = InetAddress.getLocalHost();
+            }
+            NetworkInterface network = NetworkInterface.getByInetAddress(this.inetAddress);
+            if (null == network) {
                 id = 1L;
             } else {
                 byte[] mac = network.getHardwareAddress();
                 if (null != mac) {
-                    id = ((0x000000FF & (long) mac[mac.length - 1]) | (0x0000FF00 & (((long) mac[mac.length - 2]) << 8))) >> 6;
+                    id = ((0x000000FF & (long) mac[mac.length - 2]) | (0x0000FF00 & (((long) mac[mac.length - 1]) << 8))) >> 6;
                     id = id % (maxDatacenterId + 1);
                 }
             }
@@ -166,7 +174,7 @@ public class Sequence {
                 timestamp = tilNextMillis(lastTimestamp);
             }
         } else {
-            // 不同毫秒内，序列号置为 1 - 3 随机数
+            // 不同毫秒内，序列号置为 1 - 2 随机数
             sequence = ThreadLocalRandom.current().nextLong(1, 3);
         }
 
@@ -191,4 +199,10 @@ public class Sequence {
         return SystemClock.now();
     }
 
+    /**
+     * 反解id的时间戳部分
+     */
+    public static long parseIdTimestamp(long id) {
+        return (id>>22)+twepoch;
+    }
 }
