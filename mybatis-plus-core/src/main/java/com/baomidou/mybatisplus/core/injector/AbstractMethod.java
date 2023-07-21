@@ -15,10 +15,12 @@
  */
 package com.baomidou.mybatisplus.core.injector;
 
-import com.baomidou.mybatisplus.core.enums.SqlMethod;
 import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfo;
-import com.baomidou.mybatisplus.core.toolkit.*;
+import com.baomidou.mybatisplus.core.toolkit.Assert;
+import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
+import com.baomidou.mybatisplus.core.toolkit.Constants;
+import com.baomidou.mybatisplus.core.toolkit.StringPool;
 import com.baomidou.mybatisplus.core.toolkit.sql.SqlScriptUtils;
 import org.apache.ibatis.builder.MapperBuilderAssistant;
 import org.apache.ibatis.executor.keygen.KeyGenerator;
@@ -48,14 +50,18 @@ import static java.util.stream.Collectors.joining;
  */
 @SuppressWarnings("serial")
 public abstract class AbstractMethod implements Constants {
-    protected static final Log logger = LogFactory.getLog(AbstractMethod.class);
+
+    protected final Log logger = LogFactory.getLog(getClass());
 
     protected Configuration configuration;
+
     protected LanguageDriver languageDriver;
+
     protected MapperBuilderAssistant builderAssistant;
 
     /**
      * 方法名称
+     *
      * @since 3.5.0
      */
     protected final String methodName;
@@ -130,7 +136,7 @@ public abstract class AbstractMethod implements Constants {
      * @return sql
      */
     protected String sqlComment() {
-        return convertIfEwParam(Q_WRAPPER_SQL_COMMENT, true);
+        return NEWLINE + convertIfEwParam(Q_WRAPPER_SQL_COMMENT, true);
     }
 
     /**
@@ -227,7 +233,7 @@ public abstract class AbstractMethod implements Constants {
             sqlScript = SqlScriptUtils.convertIf(sqlScript, String.format("%s != null", WRAPPER_ENTITY),
                 true);
             sqlScript += (NEWLINE + table.getLogicDeleteSql(true, true) + NEWLINE);
-            String normalSqlScript = SqlScriptUtils.convertIf(String.format("AND ${%s}", WRAPPER_SQLSEGMENT),
+            String normalSqlScript = SqlScriptUtils.convertIf(String.format(" AND ${%s}", WRAPPER_SQLSEGMENT),
                 String.format("%s != null and %s != '' and %s", WRAPPER_SQLSEGMENT, WRAPPER_SQLSEGMENT,
                     WRAPPER_NONEMPTYOFNORMAL), true);
             normalSqlScript += NEWLINE;
@@ -314,6 +320,7 @@ public abstract class AbstractMethod implements Constants {
 
     /**
      * 查询
+     *
      * @since 3.5.0
      */
     protected MappedStatement addSelectMappedStatementForTable(Class<?> mapperClass, SqlSource sqlSource, TableInfo table) {
@@ -350,6 +357,7 @@ public abstract class AbstractMethod implements Constants {
 
     /**
      * 插入
+     *
      * @since 3.5.0
      */
     protected MappedStatement addInsertMappedStatement(Class<?> mapperClass, Class<?> parameterType,
@@ -432,6 +440,5 @@ public abstract class AbstractMethod implements Constants {
      * @return MappedStatement
      */
     public abstract MappedStatement injectMappedStatement(Class<?> mapperClass, Class<?> modelClass, TableInfo tableInfo);
-    
 
 }

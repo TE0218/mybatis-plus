@@ -25,6 +25,7 @@ import org.apache.ibatis.executor.parameter.ParameterHandler;
 import org.apache.ibatis.mapping.BoundSql;
 import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.mapping.SqlSource;
+import org.apache.ibatis.parsing.XNode;
 import org.apache.ibatis.scripting.xmltags.XMLLanguageDriver;
 import org.apache.ibatis.session.Configuration;
 
@@ -46,8 +47,15 @@ public class MybatisXMLLanguageDriver extends XMLLanguageDriver {
     }
 
     @Override
+    public SqlSource createSqlSource(Configuration configuration, XNode script, Class<?> parameterType) {
+        MybatisXMLScriptBuilder builder = new MybatisXMLScriptBuilder(configuration, script, parameterType);
+        return builder.parseScriptNode();
+    }
+
+    @Override
     public SqlSource createSqlSource(Configuration configuration, String script, Class<?> parameterType) {
         GlobalConfig.DbConfig config = GlobalConfigUtils.getDbConfig(configuration);
+        script = script.replaceAll("\r", "").replaceAll("\n", "");
         if (config.isReplacePlaceholder()) {
             List<String> find = SqlUtils.findPlaceholder(script);
             if (CollectionUtils.isNotEmpty(find)) {

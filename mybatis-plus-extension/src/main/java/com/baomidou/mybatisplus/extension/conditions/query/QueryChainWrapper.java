@@ -15,14 +15,15 @@
  */
 package com.baomidou.mybatisplus.extension.conditions.query;
 
-import java.util.function.Predicate;
-
 import com.baomidou.mybatisplus.core.conditions.query.Query;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.core.toolkit.ExceptionUtils;
 import com.baomidou.mybatisplus.extension.conditions.AbstractChainWrapper;
+
+import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Query Chain Wrapper
@@ -52,8 +53,8 @@ public class QueryChainWrapper<T> extends AbstractChainWrapper<T, String, QueryC
     }
 
     @Override
-    public QueryChainWrapper<T> select(String... columns) {
-        wrapperChildren.select(columns);
+    public QueryChainWrapper<T> select(boolean condition, List<String> columns) {
+        wrapperChildren.select(condition, columns);
         return typedThis;
     }
 

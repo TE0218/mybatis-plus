@@ -15,9 +15,42 @@
  */
 package com.baomidou.mybatisplus.extension.plugins.inner;
 
+import java.io.Reader;
+import java.math.BigDecimal;
+import java.sql.Clob;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.ibatis.executor.statement.StatementHandler;
+import org.apache.ibatis.mapping.BoundSql;
+import org.apache.ibatis.mapping.MappedStatement;
+import org.apache.ibatis.mapping.ParameterMapping;
+import org.apache.ibatis.mapping.SqlCommandType;
+import org.apache.ibatis.reflection.MetaObject;
+import org.apache.ibatis.scripting.defaults.DefaultParameterHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.baomidou.mybatisplus.core.exceptions.MybatisPlusException;
 import com.baomidou.mybatisplus.core.metadata.TableInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
 import com.baomidou.mybatisplus.core.toolkit.PluginUtils;
+
 import lombok.Data;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.JdbcParameter;
@@ -27,32 +60,22 @@ import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.delete.Delete;
 import net.sf.jsqlparser.statement.insert.Insert;
-import net.sf.jsqlparser.statement.select.*;
+import net.sf.jsqlparser.statement.select.AllColumns;
+import net.sf.jsqlparser.statement.select.FromItem;
+import net.sf.jsqlparser.statement.select.PlainSelect;
+import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectExpressionItem;
+import net.sf.jsqlparser.statement.select.SelectItem;
 import net.sf.jsqlparser.statement.update.Update;
 import net.sf.jsqlparser.statement.update.UpdateSet;
-import org.apache.ibatis.executor.statement.StatementHandler;
-import org.apache.ibatis.mapping.BoundSql;
-import org.apache.ibatis.mapping.MappedStatement;
-import org.apache.ibatis.mapping.ParameterMapping;
-import org.apache.ibatis.mapping.SqlCommandType;
-import org.apache.ibatis.reflection.MetaObject;
-import org.apache.ibatis.reflection.SystemMetaObject;
-import org.apache.ibatis.scripting.defaults.DefaultParameterHandler;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.Reader;
-import java.math.BigDecimal;
-import java.sql.*;
-import java.util.Date;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * <p>
  * 数据变动记录插件
  * 默认会生成一条log，格式：
  * ----------------------INSERT LOG------------------------------
+ * </p>
+ * <p>
  * {
  * "tableName": "h2user",
  * "operation": "insert",
@@ -96,6 +119,10 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
 
     private final Map<String, Set<String>> ignoredTableColumns = new ConcurrentHashMap<>();
     private final Set<String> ignoreAllColumns = new HashSet<>();//全部表的这些字段名，INSERT/UPDATE都忽略，delete暂时保留
+    //批量更新上限, 默认一次最多1000条
+    private int BATCH_UPDATE_LIMIT = 1000;
+    private boolean batchUpdateLimitationOpened = false;
+    private final Map<String, Integer> BATCH_UPDATE_LIMIT_MAP = new ConcurrentHashMap<>();//表名->批量更新上限
 
     @Override
     public void beforePrepare(StatementHandler sh, Connection connection, Integer transactionTimeout) {
@@ -120,6 +147,9 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
                     return;
                 }
             } catch (Exception e) {
+                if (e instanceof DataUpdateLimitationException) {
+                    throw (DataUpdateLimitationException) e;
+                }
                 logger.error("Unexpected error for mappedStatement={}, sql={}", ms.getId(), mpBs.sql(), e);
                 return;
             }
@@ -189,7 +219,7 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
         BoundSql boundSql4Select = new BoundSql(mappedStatement.getConfiguration(), selectStmt.toString(),
             prepareParameterMapping4Select(boundSql.getParameterMappings(), updateStmt),
             boundSql.getParameterObject());
-        MetaObject metaObject = SystemMetaObject.forObject(boundSql);
+        MetaObject metaObject = PluginUtils.getMetaObject(boundSql);
         Map<String, Object> additionalParameters = (Map<String, Object>) metaObject.getValue("additionalParameters");
         if (additionalParameters != null && !additionalParameters.isEmpty()) {
             for (Map.Entry<String, Object> ety : additionalParameters.entrySet()) {
@@ -254,7 +284,7 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
             //FIRSTNAME: FIRST_NAME/FIRST-NAME/FIRST$NAME/FIRST.NAME
             relatedColumnsUpperCaseWithoutUnderline.put(item.toString().replaceAll("[._\\-$]", "").toUpperCase(), item.toString().toUpperCase());
         }
-        MetaObject metaObject = SystemMetaObject.forObject(updateSql.getParameterObject());
+        MetaObject metaObject = PluginUtils.getMetaObject(updateSql.getParameterObject());
 
         for (ParameterMapping parameterMapping : updateSql.getParameterMappings()) {
             String propertyName = parameterMapping.getProperty();
@@ -293,7 +323,7 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
 
 
     private Map<String, Object> buildParameterObjectMap(BoundSql boundSql) {
-        MetaObject metaObject = SystemMetaObject.forObject(boundSql.getParameterObject());
+        MetaObject metaObject = PluginUtils.getMetaObject(boundSql.getParameterObject());
         Map<String, Object> propertyValMap = new HashMap<>(boundSql.getParameterMappings().size());
         for (ParameterMapping parameterMapping : boundSql.getParameterMappings()) {
             String propertyName = parameterMapping.getProperty();
@@ -316,7 +346,13 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
             final ResultSetMetaData metaData = resultSet.getMetaData();
             int columnCount = metaData.getColumnCount();
             StringBuilder sb = new StringBuilder("[");
+            int count = 0;
             while (resultSet.next()) {
+                ++count;
+                if (checkTableBatchLimitExceeded(selectStmt, count)) {
+                    logger.error("batch delete limit exceed: count={}, BATCH_UPDATE_LIMIT={}", count, BATCH_UPDATE_LIMIT);
+                    throw DataUpdateLimitationException.DEFAULT;
+                }
                 sb.append("{");
                 for (int i = 1; i <= columnCount; ++i) {
                     sb.append("\"").append(metaData.getColumnName(i)).append("\":\"");
@@ -334,6 +370,9 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
             resultSet.close();
             return sb.toString();
         } catch (Exception e) {
+            if (e instanceof DataUpdateLimitationException) {
+                throw (DataUpdateLimitationException) e;
+            }
             logger.error("try to get record tobe deleted for selectStmt={}", selectStmt, e);
             return "failed to get original data";
         }
@@ -341,12 +380,17 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
 
     private OriginalDataObj buildOriginalObjectData(Select selectStmt, Column pk, MappedStatement mappedStatement, BoundSql boundSql, Connection connection) {
         try (PreparedStatement statement = connection.prepareStatement(selectStmt.toString())) {
-
             DefaultParameterHandler parameterHandler = new DefaultParameterHandler(mappedStatement, boundSql.getParameterObject(), boundSql);
             parameterHandler.setParameters(statement);
             ResultSet resultSet = statement.executeQuery();
             List<DataChangedRecord> originalObjectDatas = new LinkedList<>();
+            int count = 0;
             while (resultSet.next()) {
+                ++count;
+                if (checkTableBatchLimitExceeded(selectStmt, count)) {
+                    logger.error("batch update limit exceed: count={}, BATCH_UPDATE_LIMIT={}", count, BATCH_UPDATE_LIMIT);
+                    throw DataUpdateLimitationException.DEFAULT;
+                }
                 originalObjectDatas.add(prepareOriginalDataObj(resultSet, pk));
             }
             OriginalDataObj result = new OriginalDataObj();
@@ -354,10 +398,50 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
             resultSet.close();
             return result;
         } catch (Exception e) {
+            if (e instanceof DataUpdateLimitationException) {
+                throw (DataUpdateLimitationException) e;
+            }
             logger.error("try to get record tobe updated for selectStmt={}", selectStmt, e);
             return new OriginalDataObj();
         }
     }
+
+    /**
+     * 防止出现全表批量更新
+     * 默认一次更新不超过1000条
+     *
+     * @param selectStmt
+     * @param count
+     * @return
+     */
+    private boolean checkTableBatchLimitExceeded(Select selectStmt, int count) {
+        if (!batchUpdateLimitationOpened) {
+            return false;
+        }
+        final PlainSelect selectBody = (PlainSelect) selectStmt.getSelectBody();
+        final FromItem fromItem = selectBody.getFromItem();
+        if (fromItem instanceof Table) {
+            Table fromTable = (Table) fromItem;
+            final String tableName = fromTable.getName().toUpperCase();
+            if (!BATCH_UPDATE_LIMIT_MAP.containsKey(tableName)) {
+                if (count > BATCH_UPDATE_LIMIT) {
+                    logger.error("batch update limit exceed for tableName={}, BATCH_UPDATE_LIMIT={}, count={}",
+                        tableName, BATCH_UPDATE_LIMIT, count);
+                    return true;
+                }
+                return false;
+            }
+            final Integer limit = BATCH_UPDATE_LIMIT_MAP.get(tableName);
+            if (count > limit) {
+                logger.error("batch update limit exceed for configured tableName={}, BATCH_UPDATE_LIMIT={}, count={}",
+                    tableName, limit, count);
+                return true;
+            }
+            return false;
+        }
+        return count > BATCH_UPDATE_LIMIT;
+    }
+
 
     /**
      * get records : include related column with original data in DB
@@ -458,6 +542,27 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
         result.setRecordStatus(originalData.startsWith("["));
         result.setChangedData(originalData);
         return result;
+    }
+
+    /**
+     * 设置批量更新记录条数上限
+     *
+     * @param limit
+     * @return
+     */
+    public DataChangeRecorderInnerInterceptor setBatchUpdateLimit(int limit) {
+        this.BATCH_UPDATE_LIMIT = limit;
+        return this;
+    }
+
+    public DataChangeRecorderInnerInterceptor openBatchUpdateLimitation() {
+        this.batchUpdateLimitationOpened = true;
+        return this;
+    }
+
+    public DataChangeRecorderInnerInterceptor configTableLimitation(String tableName, int limit) {
+        this.BATCH_UPDATE_LIMIT_MAP.put(tableName.toUpperCase(), limit);
+        return this;
     }
 
     /**
@@ -728,4 +833,15 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
             return obj.toString().replace("\"", "\\\"");
         }
     }
+
+    public static class DataUpdateLimitationException extends MybatisPlusException {
+
+        public DataUpdateLimitationException(String message) {
+            super(message);
+        }
+
+        public static DataUpdateLimitationException DEFAULT = new DataUpdateLimitationException("本次操作 因超过系统安全阈值 被拦截，如需继续，请联系管理员!");
+
+    }
+
 }

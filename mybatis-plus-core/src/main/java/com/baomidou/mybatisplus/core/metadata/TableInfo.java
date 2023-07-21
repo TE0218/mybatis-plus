@@ -99,9 +99,12 @@ public class TableInfo implements Constants {
     private String currentNamespace;
     /**
      * MybatisConfiguration 标记 (Configuration内存地址值)
+     *
+     * @deprecated 3.5.3 初始化阶段可以使用一下,后期尽量避免在容器初始化完成之后再继续调用此方法
      */
     @Getter
     @Setter(AccessLevel.NONE)
+    @Deprecated
     private Configuration configuration;
     /**
      * 是否开启下划线转驼峰
@@ -297,14 +300,16 @@ public class TableInfo implements Constants {
      *
      * @return sql 脚本片段
      */
-    public String getKeyInsertSqlColumn(final boolean batch, final boolean newLine) {
+    public String getKeyInsertSqlColumn(final boolean batch, final String prefix, final boolean newLine) {
         if (havePK()) {
+            final String newPrefix = prefix == null ? EMPTY : prefix;
+            final String prefixKeyProperty = newPrefix + keyProperty;
             if (idType == IdType.AUTO) {
                 if (batch) {
                     // 批量插入必须返回空自增情况下
                     return EMPTY;
                 }
-                return SqlScriptUtils.convertIf(keyColumn + COMMA, String.format("%s != null", keyProperty), newLine);
+                return SqlScriptUtils.convertIf(keyColumn + COMMA, String.format("%s != null", prefixKeyProperty), newLine);
             }
             return keyColumn + COMMA + (newLine ? NEWLINE : EMPTY);
         }
@@ -337,7 +342,7 @@ public class TableInfo implements Constants {
      */
     public String getAllInsertSqlColumnMaybeIf(final String prefix) {
         final String newPrefix = prefix == null ? EMPTY : prefix;
-        return getKeyInsertSqlColumn(false, true) + fieldList.stream().map(i -> i.getInsertSqlColumnMaybeIf(newPrefix))
+        return getKeyInsertSqlColumn(false, newPrefix, true) + fieldList.stream().map(i -> i.getInsertSqlColumnMaybeIf(newPrefix))
             .filter(Objects::nonNull).collect(joining(NEWLINE));
     }
 

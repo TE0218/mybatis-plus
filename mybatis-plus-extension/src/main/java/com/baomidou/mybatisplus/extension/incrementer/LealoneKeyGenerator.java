@@ -13,7 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package com.baomidou.mybatisplus.extension.incrementer;
+
+import com.baomidou.mybatisplus.annotation.DbType;
+import com.baomidou.mybatisplus.core.incrementer.IKeyGenerator;
+
 /**
- * COUNT SQL 优化相关类
+ * Lealone Sequence
+ *
+ * @author zhoujin7
+ * @since 2023-05-10
  */
-package com.baomidou.mybatisplus.extension.plugins.pagination.optimize;
+public class LealoneKeyGenerator implements IKeyGenerator {
+
+    @Override
+    public String executeSql(String incrementerName) {
+        return "select nextval('" + incrementerName + "')";
+    }
+
+    @Override
+    public DbType dbType() {
+        return DbType.LEALONE;
+    }
+}
