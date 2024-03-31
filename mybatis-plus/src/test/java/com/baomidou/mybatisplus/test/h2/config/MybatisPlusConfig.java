@@ -36,6 +36,8 @@ import org.apache.ibatis.type.JdbcType;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.sql.DataSource;
 import java.util.List;
@@ -79,8 +81,8 @@ public class MybatisPlusConfig {
              * 测试注入自定义方法
              */
             @Override
-            public List<AbstractMethod> getMethodList(Class<?> mapperClass, TableInfo tableInfo) {
-                List<AbstractMethod> methodList = super.getMethodList(mapperClass, tableInfo);
+            public List<AbstractMethod> getMethodList(org.apache.ibatis.session.Configuration configuration, Class<?> mapperClass, TableInfo tableInfo) {
+                List<AbstractMethod> methodList = super.getMethodList(configuration, mapperClass, tableInfo);
 //                methodList.add(new LogicDeleteByIdWithFill());
                 methodList.add(new AlwaysUpdateSomeColumnById(t -> t.getFieldFill() != FieldFill.INSERT));
                 methodList.add(new InsertBatchSomeColumn(t -> !(t.getFieldFill() == FieldFill.UPDATE
@@ -101,4 +103,10 @@ public class MybatisPlusConfig {
                 .setLogicNotDeleteValue("0"));
         return conf;
     }
+
+    @Bean
+    public TransactionTemplate transactionTemplate(PlatformTransactionManager platformTransactionManager){
+        return new TransactionTemplate(platformTransactionManager);
+    }
+
 }

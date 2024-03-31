@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,19 +42,27 @@ import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.mapping.ParameterMapping;
 import org.apache.ibatis.mapping.SqlCommandType;
 import org.apache.ibatis.reflection.MetaObject;
+import org.apache.ibatis.reflection.SystemMetaObject;
 import org.apache.ibatis.scripting.defaults.DefaultParameterHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.baomidou.mybatisplus.annotation.IEnum;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.exceptions.MybatisPlusException;
+import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfo;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.baomidou.mybatisplus.core.toolkit.CollectionUtils;
 import com.baomidou.mybatisplus.core.toolkit.PluginUtils;
+import com.baomidou.mybatisplus.extension.parser.JsqlParserGlobal;
 
 import lombok.Data;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.JdbcParameter;
-import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.expression.RowConstructor;
+import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
@@ -64,10 +72,13 @@ import net.sf.jsqlparser.statement.select.AllColumns;
 import net.sf.jsqlparser.statement.select.FromItem;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectBody;
 import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import net.sf.jsqlparser.statement.select.SelectItem;
+import net.sf.jsqlparser.statement.select.SetOperationList;
 import net.sf.jsqlparser.statement.update.Update;
 import net.sf.jsqlparser.statement.update.UpdateSet;
+import net.sf.jsqlparser.statement.values.ValuesStatement;
 
 /**
  * <p>
@@ -113,6 +124,7 @@ import net.sf.jsqlparser.statement.update.UpdateSet;
  * @date 2022-8-21
  */
 public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
+
     protected final Logger logger = LoggerFactory.getLogger(this.getClass());
     @SuppressWarnings("unused")
     public static final String IGNORED_TABLE_COLUMN_PROPERTIES = "ignoredTableColumns";
@@ -135,7 +147,7 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
             OperationResult operationResult;
             long startTs = System.currentTimeMillis();
             try {
-                Statement statement = CCJSqlParserUtil.parse(mpBs.sql());
+                Statement statement = JsqlParserGlobal.parse(mpBs.sql());
                 if (statement instanceof Insert) {
                     operationResult = processInsert((Insert) statement, mpSh.boundSql());
                 } else if (statement instanceof Update) {
@@ -219,8 +231,8 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
         BoundSql boundSql4Select = new BoundSql(mappedStatement.getConfiguration(), selectStmt.toString(),
             prepareParameterMapping4Select(boundSql.getParameterMappings(), updateStmt),
             boundSql.getParameterObject());
-        MetaObject metaObject = PluginUtils.getMetaObject(boundSql);
-        Map<String, Object> additionalParameters = (Map<String, Object>) metaObject.getValue("additionalParameters");
+        PluginUtils.MPBoundSql mpBoundSql = PluginUtils.mpBoundSql(boundSql);
+        Map<String, Object> additionalParameters = mpBoundSql.additionalParameters();
         if (additionalParameters != null && !additionalParameters.isEmpty()) {
             for (Map.Entry<String, Object> ety : additionalParameters.entrySet()) {
                 boundSql4Select.setAdditionalParameter(ety.getKey(), ety.getValue());
@@ -262,10 +274,12 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
      * @return
      */
     private List<DataChangedRecord> compareAndGetUpdatedColumnDatas(String tableName, BoundSql updateSql, Statement statement, OriginalDataObj originalDataObj) {
-        Map<String, Object> columnNameValMap = new HashMap<>(updateSql.getParameterMappings().size());
+        Map<String, String> columnNameValMap = new HashMap<>(updateSql.getParameterMappings().size());
+        Map<Integer, String> columnSetIndexMap = new HashMap<>(updateSql.getParameterMappings().size());
         List<Column> selectItemsFromUpdateSql = new ArrayList<>();
         if (statement instanceof Update) {
             Update updateStmt = (Update) statement;
+            int index = 0;
             for (UpdateSet updateSet : updateStmt.getUpdateSets()) {
                 selectItemsFromUpdateSql.addAll(updateSet.getColumns());
                 final List<Expression> updateList = updateSet.getExpressions();
@@ -274,41 +288,63 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
                     if (!(updateExps instanceof JdbcParameter)) {
                         columnNameValMap.put(updateSet.getColumns().get(i).getColumnName().toUpperCase(), updateExps.toString());
                     }
+                    columnSetIndexMap.put(index++, updateSet.getColumns().get(i).getColumnName().toUpperCase());
                 }
             }
         } else if (statement instanceof Insert) {
-            selectItemsFromUpdateSql.addAll(((Insert) statement).getColumns());
+            Insert insert = (Insert) statement;
+            selectItemsFromUpdateSql.addAll(insert.getColumns());
+            columnNameValMap.putAll(detectInsertColumnValuesNonJdbcParameters(insert));
         }
         Map<String, String> relatedColumnsUpperCaseWithoutUnderline = new HashMap<>(selectItemsFromUpdateSql.size(), 1);
         for (Column item : selectItemsFromUpdateSql) {
             //FIRSTNAME: FIRST_NAME/FIRST-NAME/FIRST$NAME/FIRST.NAME
-            relatedColumnsUpperCaseWithoutUnderline.put(item.toString().replaceAll("[._\\-$]", "").toUpperCase(), item.toString().toUpperCase());
+            relatedColumnsUpperCaseWithoutUnderline.put(item.getColumnName().replaceAll("[._\\-$]", "").toUpperCase(), item.getColumnName().toUpperCase());
         }
-        MetaObject metaObject = PluginUtils.getMetaObject(updateSql.getParameterObject());
-
+        MetaObject metaObject = SystemMetaObject.forObject(updateSql.getParameterObject());
+        int index = 0;
         for (ParameterMapping parameterMapping : updateSql.getParameterMappings()) {
             String propertyName = parameterMapping.getProperty();
             if (propertyName.startsWith("ew.paramNameValuePairs")) {
+                ++index;
                 continue;
             }
             String[] arr = propertyName.split("\\.");
             String propertyNameTrim = arr[arr.length - 1].replace("_", "").toUpperCase();
-            if (relatedColumnsUpperCaseWithoutUnderline.containsKey(propertyNameTrim)) {
-                columnNameValMap.put(relatedColumnsUpperCaseWithoutUnderline.get(propertyNameTrim), metaObject.getValue(propertyName));
+            try {
+                final String columnName = columnSetIndexMap.getOrDefault(index++, getColumnNameByProperty(propertyNameTrim, tableName));
+                if (relatedColumnsUpperCaseWithoutUnderline.containsKey(propertyNameTrim)) {
+                    final String colkey = relatedColumnsUpperCaseWithoutUnderline.get(propertyNameTrim);
+                    final String val = String.valueOf(metaObject.getValue(propertyName));
+                    if (columnNameValMap.containsKey(colkey)) {
+                        columnNameValMap.put(relatedColumnsUpperCaseWithoutUnderline.get(propertyNameTrim), String.valueOf(columnNameValMap.get(colkey)).replace("?", val));
+                    }
+                    if (columnName != null && !columnNameValMap.containsKey(columnName)) {
+                        columnNameValMap.put(columnName, val);
+                    }
+                } else {
+                    if (columnName != null) {
+                        columnNameValMap.put(columnName, String.valueOf(metaObject.getValue(propertyName)));
+                    }
+                }
+            } catch (Exception e) {
+                logger.warn("get value error,propertyName:{},parameterMapping:{}", propertyName, parameterMapping);
             }
         }
+        dealWithUpdateWrapper(columnSetIndexMap, columnNameValMap, updateSql);
 
         final Set<String> ignoredColumns = ignoredTableColumns.get(tableName.toUpperCase());
         if (originalDataObj == null || originalDataObj.isEmpty()) {
             DataChangedRecord oneRecord = new DataChangedRecord();
             List<DataColumnChangeResult> updateColumns = new ArrayList<>(columnNameValMap.size());
-            for (Map.Entry<String, Object> ety : columnNameValMap.entrySet()) {
+            for (Map.Entry<String, String> ety : columnNameValMap.entrySet()) {
                 String columnName = ety.getKey();
                 if ((ignoredColumns == null || !ignoredColumns.contains(columnName)) && !ignoreAllColumns.contains(columnName)) {
                     updateColumns.add(DataColumnChangeResult.constrcutByUpdateVal(columnName, ety.getValue()));
                 }
             }
             oneRecord.setUpdatedColumns(updateColumns);
+//            oneRecord.setUpdatedColumns(Collections.EMPTY_LIST);
             return Collections.singletonList(oneRecord);
         }
         List<DataChangedRecord> originalDataList = originalDataObj.getOriginalDataObj();
@@ -319,6 +355,99 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
             }
         }
         return updateDataList;
+    }
+
+    @SuppressWarnings("rawtypes")
+    private void dealWithUpdateWrapper(Map<Integer, String> columnSetIndexMap, Map<String, String> columnNameValMap, BoundSql updateSql){
+        if (columnSetIndexMap.size() <= columnNameValMap.size()) {
+            return;
+        }
+        MetaObject mpgenVal = SystemMetaObject.forObject(updateSql.getParameterObject());
+        Object ew = mpgenVal.getValue("ew");
+        if (ew instanceof UpdateWrapper || ew instanceof LambdaUpdateWrapper) {
+            final String sqlSet = ew instanceof UpdateWrapper ? ((UpdateWrapper) ew).getSqlSet() : ((LambdaUpdateWrapper) ew).getSqlSet();// columnName=#{val}
+            if (sqlSet == null) {
+                return;
+            }
+            MetaObject ewMeta = SystemMetaObject.forObject(ew);
+            final Map paramNameValuePairs = (Map) ewMeta.getValue("paramNameValuePairs");
+            String[] setItems = sqlSet.split(",");
+            for (String setItem : setItems) {
+                //age=#{ew.paramNameValuePairs.MPGENVAL1}
+                String[] nameAndValuePair = setItem.split("=", 2);
+                if (nameAndValuePair.length == 2) {
+                    String setColName = nameAndValuePair[0].trim().toUpperCase();
+                    String setColVal = nameAndValuePair[1].trim();//#{.mp}
+                    if (columnSetIndexMap.containsValue(setColName)) {
+                        String[] mpGenKeyArray = setColVal.split("\\.");
+                        String mpGenKey = mpGenKeyArray[mpGenKeyArray.length - 1].replace("}", "");
+                        final Object setVal = paramNameValuePairs.get(mpGenKey);
+                        if (setVal instanceof IEnum) {
+                            columnNameValMap.put(setColName, String.valueOf(((IEnum<?>) setVal).getValue()));
+                        } else {
+                            columnNameValMap.put(setColName, String.valueOf(setVal));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private Map<String, String> detectInsertColumnValuesNonJdbcParameters(Insert insert) {
+        Map<String, String> columnNameValMap = new HashMap<>(4);
+        final Select select = insert.getSelect();
+        List<Column> columns = insert.getColumns();
+        if (select != null && select.getSelectBody() instanceof SetOperationList) {
+            SetOperationList setOperationList = (SetOperationList) select.getSelectBody();
+            final List<SelectBody> selects = setOperationList.getSelects();
+            if (CollectionUtils.isEmpty(selects)) {
+                return columnNameValMap;
+            }
+            final SelectBody selectBody = selects.get(0);
+            if (!(selectBody instanceof ValuesStatement)) {
+                return columnNameValMap;
+            }
+            ValuesStatement valuesStatement = (ValuesStatement) selectBody;
+            if (valuesStatement.getExpressions() instanceof ExpressionList) {
+                ExpressionList expressionList = (ExpressionList) valuesStatement.getExpressions();
+                List<Expression> expressions = expressionList.getExpressions();
+                for (Expression expression : expressions) {
+                    if (expression instanceof RowConstructor) {
+                        final ExpressionList exprList = ((RowConstructor) expression).getExprList();
+                        if (exprList != null) {
+                            final List<Expression> insertExpList = exprList.getExpressions();
+                            for (int i = 0; i < insertExpList.size(); ++i) {
+                                Expression e = insertExpList.get(i);
+                                if (!(e instanceof JdbcParameter)) {
+                                    final String columnName = columns.get(i).getColumnName();
+                                    final String val = e.toString();
+                                    columnNameValMap.put(columnName, val);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return columnNameValMap;
+    }
+
+    private String getColumnNameByProperty(String propertyName, String tableName) {
+        for (TableInfo tableInfo : TableInfoHelper.getTableInfos()) {
+            if (tableName.equalsIgnoreCase(tableInfo.getTableName())) {
+                final List<TableFieldInfo> fieldList = tableInfo.getFieldList();
+                if (CollectionUtils.isEmpty(fieldList)) {
+                    return propertyName;
+                }
+                for (TableFieldInfo tableFieldInfo : fieldList) {
+                    if (propertyName.equalsIgnoreCase(tableFieldInfo.getProperty())) {
+                        return tableFieldInfo.getColumn().toUpperCase();
+                    }
+                }
+                return propertyName;
+            }
+        }
+        return propertyName;
     }
 
 
@@ -618,30 +747,6 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
          */
         private long cost;
 
-        public String getTableName() {
-            return tableName;
-        }
-
-        public void setTableName(String tableName) {
-            this.tableName = tableName;
-        }
-
-        public String getOperation() {
-            return operation;
-        }
-
-        public void setOperation(String operation) {
-            this.operation = operation;
-        }
-
-        public boolean isRecordStatus() {
-            return recordStatus;
-        }
-
-        public void setRecordStatus(boolean recordStatus) {
-            this.recordStatus = recordStatus;
-        }
-
         public void buildDataStr(List<DataChangedRecord> records) {
             StringBuilder sb = new StringBuilder();
             sb.append("[");
@@ -659,15 +764,12 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
 
         @Override
         public String toString() {
-            StringBuilder sb = new StringBuilder();
-            sb.append("{");
-            sb.append("\"").append("tableName").append("\"").append(":").append("\"").append(tableName).append("\"").append(",");
-            sb.append("\"").append("operation").append("\"").append(":").append("\"").append(operation).append("\"").append(",");
-            sb.append("\"").append("recordStatus").append("\"").append(":").append("\"").append(recordStatus).append("\"").append(",");
-            sb.append("\"").append("changedData").append("\"").append(":").append(changedData).append(",");
-            sb.append("\"").append("cost(ms)").append("\"").append(":").append(cost);
-            sb.append("}");
-            return sb.toString();
+            return "{" +
+                "\"tableName\":\"" + tableName + "\"," +
+                "\"operation\":\"" + operation + "\"," +
+                "\"recordStatus\":\"" + recordStatus + "\"," +
+                "\"changedData\":" + changedData + "," +
+                "\"cost(ms)\":" + cost + "}";
         }
     }
 
@@ -787,12 +889,13 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
 
     @Data
     public static class DataChangedRecord {
+
         private String pkColumnName;
         private Object pkColumnVal;
         private List<DataColumnChangeResult> originalColumnDatas;
         private List<DataColumnChangeResult> updatedColumns;
 
-        public boolean hasUpdate(Map<String, Object> columnNameValMap, Set<String> ignoredColumns, Set<String> ignoreAllColumns) {
+        public boolean hasUpdate(Map<String, String> columnNameValMap, Set<String> ignoredColumns, Set<String> ignoreAllColumns) {
             if (originalColumnDatas == null) {
                 return true;
             }
@@ -841,7 +944,5 @@ public class DataChangeRecorderInnerInterceptor implements InnerInterceptor {
         }
 
         public static DataUpdateLimitationException DEFAULT = new DataUpdateLimitationException("本次操作 因超过系统安全阈值 被拦截，如需继续，请联系管理员!");
-
     }
-
 }

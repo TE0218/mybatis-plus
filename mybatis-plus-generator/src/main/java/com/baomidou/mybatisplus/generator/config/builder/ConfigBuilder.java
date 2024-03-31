@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,7 +35,10 @@ public class ConfigBuilder {
 
     /**
      * 模板路径配置信息
+     *
+     * @deprecated 3.5.6
      */
+    @Deprecated
     private final TemplateConfig templateConfig;
 
     /**
@@ -141,7 +144,14 @@ public class ConfigBuilder {
         return this;
     }
 
+    /**
+     * 获取模板配置
+     *
+     * @return 模板配置
+     * @deprecated 3.5.6 {@link #strategyConfig}
+     */
     @NotNull
+    @Deprecated
     public TemplateConfig getTemplateConfig() {
         return templateConfig;
     }

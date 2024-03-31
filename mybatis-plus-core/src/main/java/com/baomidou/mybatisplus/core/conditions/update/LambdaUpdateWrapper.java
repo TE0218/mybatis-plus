@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * @author hubin miemie HCL
  * @since 2018-05-30
  */
-@SuppressWarnings("serial")
 public class LambdaUpdateWrapper<T> extends AbstractLambdaWrapper<T, LambdaUpdateWrapper<T>>
     implements Update<LambdaUpdateWrapper<T>, SFunction<T, ?>> {
 
@@ -84,11 +83,39 @@ public class LambdaUpdateWrapper<T> extends AbstractLambdaWrapper<T, LambdaUpdat
     }
 
     @Override
-    public LambdaUpdateWrapper<T> setSql(boolean condition, String sql) {
-        if (condition && StringUtils.isNotBlank(sql)) {
-            sqlSet.add(sql);
+    public LambdaUpdateWrapper<T> setSql(boolean condition, String setSql, Object... params) {
+        if (condition && StringUtils.isNotBlank(setSql)) {
+            sqlSet.add(formatSqlMaybeWithParam(setSql, params));
         }
         return typedThis;
+    }
+
+    /**
+     * 字段自增变量 val 值
+     *
+     * @param condition 是否加入 set
+     * @param column    字段
+     * @param val       变量值 1 字段自增 + 1
+     */
+    public LambdaUpdateWrapper<T> setSelfIncr(boolean condition, SFunction<T, ?> column, Object val) {
+        return maybeDo(condition, () -> {
+            String realColumn = columnToString(column);
+            sqlSet.add(realColumn + Constants.EQUALS + realColumn + Constants.PLUS + val);
+        });
+    }
+
+    /**
+     * 字段自减变量 val 值
+     *
+     * @param condition 是否加入 set
+     * @param column    字段
+     * @param val       变量值 1 字段自减 - 1
+     */
+    public LambdaUpdateWrapper<T> setSelfDecr(boolean condition, SFunction<T, ?> column, Object val) {
+        return maybeDo(condition, () -> {
+            String realColumn = columnToString(column);
+            sqlSet.add(realColumn + Constants.EQUALS + realColumn + Constants.DASH + val);
+        });
     }
 
     @Override

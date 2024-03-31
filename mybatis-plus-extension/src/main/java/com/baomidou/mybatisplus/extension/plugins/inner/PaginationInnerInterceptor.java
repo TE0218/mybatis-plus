@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import com.baomidou.mybatisplus.annotation.DbType;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.core.metadata.OrderItem;
 import com.baomidou.mybatisplus.core.toolkit.*;
+import com.baomidou.mybatisplus.extension.parser.JsqlParserGlobal;
 import com.baomidou.mybatisplus.extension.plugins.pagination.DialectFactory;
 import com.baomidou.mybatisplus.extension.plugins.pagination.DialectModel;
 import com.baomidou.mybatisplus.extension.plugins.pagination.dialects.IDialect;
@@ -30,7 +31,6 @@ import lombok.NoArgsConstructor;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Alias;
 import net.sf.jsqlparser.expression.Expression;
-import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.select.*;
@@ -115,7 +115,7 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
     @Override
     public boolean willDoQuery(Executor executor, MappedStatement ms, Object parameter, RowBounds rowBounds, ResultHandler resultHandler, BoundSql boundSql) throws SQLException {
         IPage<?> page = ParameterUtils.findPage(parameter).orElse(null);
-        if (page == null || page.getSize() < 0 || !page.searchCount()) {
+        if (page == null || page.getSize() < 0 || !page.searchCount() || resultHandler != Executor.NO_RESULT_HANDLER) {
             return true;
         }
 
@@ -261,7 +261,7 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
             return lowLevelCountSql(sql);
         }
         try {
-            Select select = (Select) CCJSqlParserUtil.parse(sql);
+            Select select = (Select) JsqlParserGlobal.parse(sql);
             SelectBody selectBody = select.getSelectBody();
             // https://github.com/baomidou/mybatis-plus/issues/3920  分页增加union语法支持
             if (selectBody instanceof SetOperationList) {
@@ -270,38 +270,36 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
             PlainSelect plainSelect = (PlainSelect) select.getSelectBody();
             Distinct distinct = plainSelect.getDistinct();
             GroupByElement groupBy = plainSelect.getGroupBy();
-            List<OrderByElement> orderBy = plainSelect.getOrderByElements();
 
+            // 包含 distinct、groupBy 不优化
+            if (null != distinct || null != groupBy) {
+                return lowLevelCountSql(select.toString());
+            }
+
+            // 优化 order by 在非分组情况下
+            List<OrderByElement> orderBy = plainSelect.getOrderByElements();
             if (CollectionUtils.isNotEmpty(orderBy)) {
                 boolean canClean = true;
-                if (groupBy != null) {
-                    // 包含groupBy 不去除orderBy
-                    canClean = false;
-                }
-                if (canClean) {
-                    for (OrderByElement order : orderBy) {
-                        // order by 里带参数,不去除order by
-                        Expression expression = order.getExpression();
-                        if (!(expression instanceof Column) && expression.toString().contains(StringPool.QUESTION_MARK)) {
-                            canClean = false;
-                            break;
-                        }
+                for (OrderByElement order : orderBy) {
+                    // order by 里带参数,不去除order by
+                    Expression expression = order.getExpression();
+                    if (!(expression instanceof Column) && expression.toString().contains(StringPool.QUESTION_MARK)) {
+                        canClean = false;
+                        break;
                     }
                 }
                 if (canClean) {
                     plainSelect.setOrderByElements(null);
                 }
             }
+
             //#95 Github, selectItems contains #{} ${}, which will be translated to ?, and it may be in a function: power(#{myInt},2)
             for (SelectItem item : plainSelect.getSelectItems()) {
                 if (item.toString().contains(StringPool.QUESTION_MARK)) {
                     return lowLevelCountSql(select.toString());
                 }
             }
-            // 包含 distinct、groupBy不优化
-            if (distinct != null || null != groupBy) {
-                return lowLevelCountSql(select.toString());
-            }
+
             // 包含 join 连表,进行判断是否移除 join 连表
             if (optimizeJoin && page.optimizeJoinOfCountSql()) {
                 List<Join> joins = plainSelect.getJoins();
@@ -352,6 +350,7 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
                     }
                 }
             }
+
             // 优化 SQL
             plainSelect.setSelectItems(COUNT_SELECT_ITEM);
             return select.toString();
@@ -382,7 +381,7 @@ public class PaginationInnerInterceptor implements InnerInterceptor {
      */
     public String concatOrderBy(String originalSql, List<OrderItem> orderList) {
         try {
-            Select select = (Select) CCJSqlParserUtil.parse(originalSql);
+            Select select = (Select) JsqlParserGlobal.parse(originalSql);
             SelectBody selectBody = select.getSelectBody();
             if (selectBody instanceof PlainSelect) {
                 PlainSelect plainSelect = (PlainSelect) selectBody;

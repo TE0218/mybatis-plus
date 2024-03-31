@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,6 @@ import java.util.concurrent.ConcurrentSkipListSet;
  */
 @Data
 @Accessors(chain = true)
-@SuppressWarnings("serial")
 public class GlobalConfig implements Serializable {
     /**
      * 是否开启 LOGO
@@ -68,7 +67,7 @@ public class GlobalConfig implements Serializable {
     /**
      * 仅用于缓存 SqlSessionFactory(外部勿进行set,set了也没用)
      *
-     * @deprecated 3.5.3
+     * @deprecated 3.5.3.2
      */
     @Deprecated
     private SqlSessionFactory sqlSessionFactory;
@@ -120,6 +119,15 @@ public class GlobalConfig implements Serializable {
          * @since 3.1.1
          */
         private String columnFormat;
+        /**
+         * db 表 format
+         * <p>
+         * 例: `%s`
+         * <p>
+         *
+         * @since 3.5.3.2
+         */
+        private String tableFormat;
         /**
          * entity 的字段(property)的 format,只有在 column as property 这种情况下生效
          * <p>
@@ -200,6 +208,14 @@ public class GlobalConfig implements Serializable {
          * @since 3.4.4
          */
         private FieldStrategy whereStrategy = FieldStrategy.NOT_NULL;
+
+        /**
+         * 生成INSERT语句时忽略自增主键字段(默认不忽略,主键有值时写入主键值,无值自增).
+         * <p>当设置为true时,执行生成SQL语句无论ID是否有值都会忽视 (此为3.4.3.1版本下策略,如果升级遇到问题可以考虑开启此配置来兼容升级)</p>
+         *
+         * @since 3.5.6
+         */
+        private boolean insertIgnoreAutoIncrementColumn = false;
 
         /**
          * 重写whereStrategy的get方法，适配低版本：

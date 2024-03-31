@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2022, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,27 +24,23 @@ import com.baomidou.mybatisplus.core.toolkit.ArrayUtils;
 import com.baomidou.mybatisplus.core.toolkit.Constants;
 import com.baomidou.mybatisplus.core.toolkit.GlobalConfigUtils;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
-import org.apache.ibatis.executor.ErrorContext;
-import org.apache.ibatis.executor.parameter.ParameterHandler;
-import org.apache.ibatis.mapping.*;
+import org.apache.ibatis.mapping.BoundSql;
+import org.apache.ibatis.mapping.MappedStatement;
+import org.apache.ibatis.mapping.SqlCommandType;
 import org.apache.ibatis.reflection.MetaObject;
+import org.apache.ibatis.scripting.defaults.DefaultParameterHandler;
 import org.apache.ibatis.session.Configuration;
-import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.SimpleTypeRegistry;
-import org.apache.ibatis.type.TypeException;
-import org.apache.ibatis.type.TypeHandler;
-import org.apache.ibatis.type.TypeHandlerRegistry;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 自定义 ParameterHandler 重装构造函数，填充插入方法主键 ID
@@ -52,21 +48,23 @@ import java.util.Map;
  * @author nieqiuqiu 2020/6/5
  * @since 3.4.0
  */
-public class MybatisParameterHandler implements ParameterHandler {
+public class MybatisParameterHandler extends DefaultParameterHandler {
 
+    /**
+     * 填充的key值
+     *
+     * @since 3.5.3.2
+     * @deprecated 3.5.4
+     */
+    @Deprecated
     public static final String[] COLLECTION_KEYS = new String[]{"collection", "coll", "list", "array"};
 
-    private final TypeHandlerRegistry typeHandlerRegistry;
-    private final MappedStatement mappedStatement;
     private final Object parameterObject;
-    private final BoundSql boundSql;
     private final Configuration configuration;
     private final SqlCommandType sqlCommandType;
 
     public MybatisParameterHandler(MappedStatement mappedStatement, Object parameter, BoundSql boundSql) {
-        this.typeHandlerRegistry = mappedStatement.getConfiguration().getTypeHandlerRegistry();
-        this.mappedStatement = mappedStatement;
-        this.boundSql = boundSql;
+        super(mappedStatement, parameter, boundSql);
         this.configuration = mappedStatement.getConfiguration();
         this.sqlCommandType = mappedStatement.getSqlCommandType();
         this.parameterObject = processParameter(parameter);
@@ -182,7 +180,7 @@ public class MybatisParameterHandler implements ParameterHandler {
      * </p>
      *
      * @return 集合参数
-     * @deprecated 3.5.3
+     * @deprecated 3.5.3.2
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     @Deprecated
@@ -219,25 +217,24 @@ public class MybatisParameterHandler implements ParameterHandler {
      */
     @SuppressWarnings({"rawtypes", "unchecked"})
     private Collection<Object> extractParameters(Object parameterObject) {
-        Collection<Object> parameters = new ArrayList<>();
         if (parameterObject instanceof Collection) {
-            parameters = (Collection) parameterObject;
+            return (Collection) parameterObject;
         } else if (ArrayUtils.isArray(parameterObject)) {
-            parameters = toCollection(parameterObject);
+            return toCollection(parameterObject);
         } else if (parameterObject instanceof Map) {
-            Map parameterMap = (Map) parameterObject;
-            if (parameterMap.containsKey(Constants.ENTITY)) {
-                parameters.add(parameterMap.get(Constants.ENTITY));
-            }
-            for (String key : COLLECTION_KEYS) {
-                if (parameterMap.containsKey(key)) {
-                    parameters.addAll(toCollection(parameterMap.get(key)));
+            Collection<Object> parameters = new ArrayList<>();
+            Map<String, Object> parameterMap = (Map) parameterObject;
+            Set<Object> objectSet = new HashSet<>();
+            parameterMap.forEach((k, v) -> {
+                if (objectSet.add(v)) {
+                    Collection<Object> collection = toCollection(v);
+                    parameters.addAll(collection);
                 }
-            }
+            });
+            return parameters;
         } else {
-            parameters.add(parameterObject);
+            return Collections.singleton(parameterObject);
         }
-        return parameters;
     }
 
     @SuppressWarnings("unchecked")
@@ -245,48 +242,13 @@ public class MybatisParameterHandler implements ParameterHandler {
         if (value == null) {
             return Collections.emptyList();
         }
-        // 只处理array和collection
-        if (ArrayUtils.isArray(value)) {
+        if (ArrayUtils.isArray(value) && !value.getClass().getComponentType().isPrimitive()) {
             return Arrays.asList((Object[]) value);
         } else if (Collection.class.isAssignableFrom(value.getClass())) {
             return (Collection<Object>) value;
+        } else {
+            return Collections.singletonList(value);
         }
-        return Collections.emptyList();
     }
 
-    @Override
-    @SuppressWarnings("unchecked")
-    public void setParameters(PreparedStatement ps) {
-        ErrorContext.instance().activity("setting parameters").object(this.mappedStatement.getParameterMap().getId());
-        List<ParameterMapping> parameterMappings = this.boundSql.getParameterMappings();
-        if (parameterMappings != null) {
-            for (int i = 0; i < parameterMappings.size(); i++) {
-                ParameterMapping parameterMapping = parameterMappings.get(i);
-                if (parameterMapping.getMode() != ParameterMode.OUT) {
-                    Object value;
-                    String propertyName = parameterMapping.getProperty();
-                    if (this.boundSql.hasAdditionalParameter(propertyName)) { // issue #448 ask first for additional params
-                        value = this.boundSql.getAdditionalParameter(propertyName);
-                    } else if (this.parameterObject == null) {
-                        value = null;
-                    } else if (this.typeHandlerRegistry.hasTypeHandler(this.parameterObject.getClass())) {
-                        value = parameterObject;
-                    } else {
-                        MetaObject metaObject = this.configuration.newMetaObject(this.parameterObject);
-                        value = metaObject.getValue(propertyName);
-                    }
-                    TypeHandler typeHandler = parameterMapping.getTypeHandler();
-                    JdbcType jdbcType = parameterMapping.getJdbcType();
-                    if (value == null && jdbcType == null) {
-                        jdbcType = this.configuration.getJdbcTypeForNull();
-                    }
-                    try {
-                        typeHandler.setParameter(ps, i + 1, value, jdbcType);
-                    } catch (TypeException | SQLException e) {
-                        throw new TypeException("Could not set parameters for mapping: " + parameterMapping + ". Cause: " + e, e);
-                    }
-                }
-            }
-        }
-    }
 }
