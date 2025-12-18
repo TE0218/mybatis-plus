@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -113,6 +113,9 @@ public class StrategyConfig {
 
     /**
      * 不包含表名
+     * <p>
+     * 只在{@link com.baomidou.mybatisplus.generator.query.SQLQuery}模式下生效.
+     * </p>
      *
      * @since 3.3.0
      */
@@ -264,10 +267,10 @@ public class StrategyConfig {
         boolean isInclude = !this.getInclude().isEmpty();
         boolean isExclude = !this.getExclude().isEmpty();
         if (isInclude && isExclude) {
-            throw new IllegalArgumentException("<strategy> 标签中 <include> 与 <exclude> 只能配置一项！");
+            throw new IllegalArgumentException("`include` and `exclude` configurations are mutually exclusive and cannot be used simultaneously.");
         }
         if (this.getNotLikeTable() != null && this.getLikeTable() != null) {
-            throw new IllegalArgumentException("<strategy> 标签中 <likeTable> 与 <notLikeTable> 只能配置一项！");
+            throw new IllegalArgumentException("`likeTable` and `notLikeTable` configurations are mutually exclusive and cannot be used simultaneously.");
         }
     }
 

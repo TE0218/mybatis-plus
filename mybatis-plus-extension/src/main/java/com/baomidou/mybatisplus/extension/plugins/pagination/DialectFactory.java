@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,6 +29,7 @@ import java.util.Map;
  * @since 2016-01-23
  */
 public class DialectFactory {
+
     private static final Map<DbType, IDialect> DIALECT_ENUM_MAP = new EnumMap<>(DbType.class);
 
     public static IDialect getDialect(DbType dbType) {
@@ -38,47 +39,22 @@ public class DialectFactory {
                 throw ExceptionUtils.mpe("%s database not supported.", dbType.getDb());
             }
             // mysql same type
-            else if (dbType == DbType.MYSQL
-                || dbType == DbType.MARIADB
-                || dbType == DbType.GBASE
-                || dbType == DbType.OSCAR
-                || dbType == DbType.XU_GU
-                || dbType == DbType.CLICK_HOUSE
-                || dbType == DbType.OCEAN_BASE
-                || dbType == DbType.CUBRID
-                || dbType == DbType.SUNDB) {
+            else if (dbType.mysqlSameType()) {
                 dialect = new MySqlDialect();
             }
             // oracle same type
-            else if (dbType == DbType.ORACLE
-                || dbType == DbType.DM
-                || dbType == DbType.GAUSS) {
+            else if (dbType.oracleSameType()) {
                 dialect = new OracleDialect();
             }
             // postgresql same type
-            else if (dbType == DbType.POSTGRE_SQL
-                || dbType == DbType.H2
-                || dbType == DbType.LEALONE
-                || dbType == DbType.SQLITE
-                || dbType == DbType.HSQL
-                || dbType == DbType.KINGBASE_ES
-                || dbType == DbType.PHOENIX
-                || dbType == DbType.SAP_HANA
-                || dbType == DbType.IMPALA
-                || dbType == DbType.HIGH_GO
-                || dbType == DbType.VERTICA
-                || dbType == DbType.REDSHIFT
-                || dbType == DbType.OPENGAUSS
-                || dbType == DbType.TDENGINE
-                || dbType == DbType.UXDB
-                || dbType == DbType.GBASE8S_PG
-                || dbType == DbType.GBASE_8C) {
+            else if (dbType.postgresqlSameType()) {
                 dialect = new PostgreDialect();
             }
             // other types
             else if (dbType == DbType.ORACLE_12C
                 || dbType == DbType.FIREBIRD
-                || dbType == DbType.SQL_SERVER) {
+                || dbType == DbType.SQL_SERVER
+                || dbType == DbType.DERBY) {
                 dialect = new Oracle12cDialect();
             } else if (dbType == DbType.DB2) {
                 dialect = new DB2Dialect();
@@ -98,6 +74,10 @@ public class DialectFactory {
             } else if (dbType == DbType.TRINO
                 || dbType == DbType.PRESTO) {
                 dialect = new TrinoDialect();
+            } else if (dbType == DbType.HIVE2) {
+                dialect = new Hive2Dialect();
+            } else if (dbType == DbType.GAUSS_DB) {
+                dialect = new GaussDBDialect();
             }
             DIALECT_ENUM_MAP.put(dbType, dialect);
         }

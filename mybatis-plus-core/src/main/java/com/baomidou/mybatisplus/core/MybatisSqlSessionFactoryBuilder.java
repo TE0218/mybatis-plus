@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,8 +21,11 @@ import com.baomidou.mybatisplus.core.incrementer.IdentifierGenerator;
 import com.baomidou.mybatisplus.core.injector.SqlRunnerInjector;
 import com.baomidou.mybatisplus.core.toolkit.GlobalConfigUtils;
 import com.baomidou.mybatisplus.core.toolkit.IdWorker;
+import com.baomidou.mybatisplus.core.toolkit.NetUtils;
 import org.apache.ibatis.exceptions.ExceptionFactory;
 import org.apache.ibatis.executor.ErrorContext;
+import org.apache.ibatis.logging.Log;
+import org.apache.ibatis.logging.LogFactory;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSessionFactory;
 import org.apache.ibatis.session.SqlSessionFactoryBuilder;
@@ -30,6 +33,7 @@ import org.apache.ibatis.session.SqlSessionFactoryBuilder;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+import java.net.InetAddress;
 import java.util.Properties;
 
 /**
@@ -79,9 +83,21 @@ public class MybatisSqlSessionFactoryBuilder extends SqlSessionFactoryBuilder {
     public SqlSessionFactory build(Configuration configuration) {
         GlobalConfig globalConfig = GlobalConfigUtils.getGlobalConfig(configuration);
 
-        final IdentifierGenerator identifierGenerator;
+        IdentifierGenerator identifierGenerator;
         if (null == globalConfig.getIdentifierGenerator()) {
-            identifierGenerator = DefaultIdentifierGenerator.getInstance();
+            GlobalConfig.Sequence sequence = globalConfig.getSequence();
+            if (sequence.getWorkerId() != null && sequence.getDatacenterId() != null) {
+                identifierGenerator = new DefaultIdentifierGenerator(sequence.getWorkerId(), sequence.getDatacenterId());
+            } else {
+                NetUtils.NetProperties netProperties = new NetUtils.NetProperties(sequence.getPreferredNetworks(), sequence.getIgnoredInterfaces());
+                try {
+                    InetAddress inetAddress = new NetUtils(netProperties).findFirstNonLoopbackAddress();
+                    identifierGenerator = new DefaultIdentifierGenerator(inetAddress);
+                } catch (Exception e) {
+                    Log log = LogFactory.getLog(MybatisSqlSessionFactoryBuilder.class);
+                    identifierGenerator = DefaultIdentifierGenerator.getFixedIdentifierGenerator(log);
+                }
+            }
             globalConfig.setIdentifierGenerator(identifierGenerator);
         } else {
             identifierGenerator = globalConfig.getIdentifierGenerator();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,7 +25,9 @@ import java.lang.reflect.Proxy;
 /**
  * 在 IDEA 的 Evaluate 中执行的 Lambda 表达式元数据需要使用该类处理元数据
  * <p>
- * Create by hcl at 2021/5/17
+ *
+ * @author HCL
+ * Create at 2021/5/17
  */
 public class IdeaProxyLambdaMeta implements LambdaMeta {
     private final Class<?> clazz;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ import com.baomidou.mybatisplus.core.toolkit.StringPool;
 import com.baomidou.mybatisplus.core.toolkit.StringUtils;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 import org.apache.ibatis.type.JdbcType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,14 +54,14 @@ public class DatabaseMetaDataWrapper {
     public DatabaseMetaDataWrapper(Connection connection, String schemaName) {
         try {
             if (null == connection) {
-                throw new RuntimeException("数据库连接不能为空");
+                throw new RuntimeException("connection cannot be null");
             }
             this.connection = connection;
             this.databaseMetaData = connection.getMetaData();
             this.catalog = connection.getCatalog();
             this.schema = schemaName;
         } catch (SQLException e) {
-            throw new RuntimeException("获取元数据错误:", e);
+            throw new RuntimeException(e);
         }
     }
 
@@ -69,13 +70,32 @@ public class DatabaseMetaDataWrapper {
             try {
                 con.close();
             } catch (SQLException sqlException) {
-                sqlException.printStackTrace();
+                logger.error("close connection exception:", sqlException);
             }
         });
     }
 
     public Map<String, Column> getColumnsInfo(String tableNamePattern, boolean queryPrimaryKey) {
         return getColumnsInfo(this.catalog, this.schema, tableNamePattern, queryPrimaryKey);
+    }
+
+    public List<DatabaseMetaDataWrapper.Index> getIndex(String tableName) {
+        List<DatabaseMetaDataWrapper.Index> indexList = new ArrayList<>();
+        try (ResultSet resultSet = databaseMetaData.getIndexInfo(catalog, schema, tableName, false, false)) {
+            // clickhouse v2驱动没实现返回了个null
+            if (resultSet != null) {
+                while (resultSet.next()) {
+                    Index index = new Index(resultSet);
+                    // skip function index
+                    if (StringUtils.isNotBlank(index.getColumnName())) {
+                        indexList.add(index);
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            logger.error("reading index information for [{}]:", tableName, e);
+        }
+        return indexList;
     }
 
     /**
@@ -92,10 +112,10 @@ public class DatabaseMetaDataWrapper {
                     primaryKeys.add(columnName);
                 }
                 if (primaryKeys.size() > 1) {
-                    logger.warn("当前表:{}，存在多主键情况！", tableName);
+                    logger.warn("The current table [{}] has multiple primary keys defined.", tableName);
                 }
             } catch (SQLException e) {
-                throw new RuntimeException("读取表主键信息:" + tableName + "错误:", e);
+                throw new RuntimeException(e);
             }
         }
         Map<String, Column> columnsInfoMap = new LinkedHashMap<>();
@@ -106,23 +126,35 @@ public class DatabaseMetaDataWrapper {
                 column.name = name;
                 column.primaryKey = primaryKeys.contains(name);
                 column.typeName = resultSet.getString("TYPE_NAME");
-                column.jdbcType = JdbcType.forCode(resultSet.getInt("DATA_TYPE"));
+                int dataType = resultSet.getInt("DATA_TYPE");
+                JdbcType jdbcType = JdbcType.forCode(dataType);
+                if (jdbcType == null) {
+                    // 不标准的类型,统一转为OTHER
+                    jdbcType = JdbcType.OTHER;
+                }
+                column.jdbcType = jdbcType;
                 column.length = resultSet.getInt("COLUMN_SIZE");
                 column.scale = resultSet.getInt("DECIMAL_DIGITS");
                 column.remarks = formatComment(resultSet.getString("REMARKS"));
                 column.defaultValue = resultSet.getString("COLUMN_DEF");
                 column.nullable = resultSet.getInt("NULLABLE") == DatabaseMetaData.columnNullable;
-                try {
-                    column.autoIncrement = "YES".equals(resultSet.getString("IS_AUTOINCREMENT"));
-                } catch (SQLException sqlException) {
-                    //TODO 目前测试在oracle旧驱动下存在问题，降级成false.
-                }
+                column.generatedColumn = isGeneratedOrAutoIncrementColumn(resultSet, "IS_GENERATEDCOLUMN");
+                column.autoIncrement = isGeneratedOrAutoIncrementColumn(resultSet, "IS_AUTOINCREMENT");
                 columnsInfoMap.put(name.toLowerCase(), column);
             }
             return Collections.unmodifiableMap(columnsInfoMap);
         } catch (SQLException e) {
-            throw new RuntimeException("读取表字段信息:" + tableName + "错误:", e);
+            throw new RuntimeException(e);
         }
+    }
+
+    private boolean isGeneratedOrAutoIncrementColumn(ResultSet resultSet, String columnLabel) {
+        try {
+            return "YES".equals(resultSet.getString(columnLabel));
+        } catch (SQLException e) {
+            // ignore
+        }
+        return false;
     }
 
     public String formatComment(String comment) {
@@ -149,7 +181,7 @@ public class DatabaseMetaDataWrapper {
                 tables.add(table);
             }
         } catch (SQLException e) {
-            throw new RuntimeException("读取数据库表信息出现错误", e);
+            throw new RuntimeException(e);
         }
         return tables;
     }
@@ -164,7 +196,7 @@ public class DatabaseMetaDataWrapper {
                 table.tableType = resultSet.getString("TABLE_TYPE");
             }
         } catch (SQLException e) {
-            throw new RuntimeException("读取表信息:" + tableName + "错误:", e);
+            throw new RuntimeException(e);
         }
         return table;
     }
@@ -207,6 +239,47 @@ public class DatabaseMetaDataWrapper {
 
         @Setter
         private String typeName;
+
+        private boolean generatedColumn;
+
+    }
+
+    @Getter
+    @ToString
+    public static class Index {
+
+        /**
+         * 索引名
+         */
+        private final String name;
+
+        /**
+         * 是否唯一索引
+         */
+        private final boolean unique;
+
+        /**
+         * 索引字段
+         */
+        private final String columnName;
+
+        /**
+         * 排序方式 (A OR D OR null)
+         */
+        private final String ascOrDesc;
+
+        private final int cardinality;
+
+        private final int ordinalPosition;
+
+        public Index(ResultSet resultSet) throws SQLException {
+            this.unique = !resultSet.getBoolean("NON_UNIQUE");
+            this.name = resultSet.getString("INDEX_NAME");
+            this.columnName = resultSet.getString("COLUMN_NAME");
+            this.ascOrDesc = resultSet.getString("ASC_OR_DESC");
+            this.cardinality = resultSet.getInt("CARDINALITY");
+            this.ordinalPosition = resultSet.getInt("ORDINAL_POSITION");
+        }
 
     }
 }

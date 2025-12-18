@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,8 +22,9 @@ import java.util.EnumMap;
 import java.util.Map;
 
 /**
+ * 数据库查询接口注册中心
+ *
  * @author nieqiuqiu
- * @date 2020-01-09
  * @since 3.3.1
  */
 public class DbQueryRegistry {
@@ -42,7 +43,8 @@ public class DbQueryRegistry {
         db_query_enum_map.put(DbType.DM, new DMQuery());
         db_query_enum_map.put(DbType.KINGBASE_ES, new KingbaseESQuery());
         db_query_enum_map.put(DbType.MYSQL, new MySqlQuery());
-        db_query_enum_map.put(DbType.GAUSS, new GaussQuery());
+        db_query_enum_map.put(DbType.GAUSS, new ZenithQuery());
+        db_query_enum_map.put(DbType.GAUSS_DB, new GaussDBSqlQuery());
         db_query_enum_map.put(DbType.OSCAR, new OscarQuery());
         db_query_enum_map.put(DbType.FIREBIRD, new FirebirdQuery());
         db_query_enum_map.put(DbType.XU_GU, new XuguQuery());

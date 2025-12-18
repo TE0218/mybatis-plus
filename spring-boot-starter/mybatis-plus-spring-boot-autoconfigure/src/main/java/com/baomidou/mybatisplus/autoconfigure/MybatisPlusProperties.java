@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
  */
 package com.baomidou.mybatisplus.autoconfigure;
 
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.config.GlobalConfig;
 import com.baomidou.mybatisplus.core.toolkit.Constants;
 import com.baomidou.mybatisplus.core.toolkit.GlobalConfigUtils;
@@ -28,14 +29,12 @@ import org.apache.ibatis.mapping.ResultSetType;
 import org.apache.ibatis.scripting.LanguageDriver;
 import org.apache.ibatis.session.AutoMappingBehavior;
 import org.apache.ibatis.session.AutoMappingUnknownColumnBehavior;
-import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.ExecutorType;
 import org.apache.ibatis.session.LocalCacheScope;
 import org.apache.ibatis.type.JdbcType;
 import org.apache.ibatis.type.TypeHandler;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
-import org.springframework.boot.context.properties.PropertyMapper;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.core.io.support.ResourcePatternResolver;
@@ -114,14 +113,6 @@ public class MybatisPlusProperties {
      * is specified, this property is not used.
      */
     private CoreConfiguration configuration;
-
-    /**
-     * 不再需要这个配置,放心删除
-     *
-     * @deprecated 2022-03-07
-     */
-    @Deprecated
-    private String typeEnumsPackage;
 
     /**
      * 全局配置
@@ -348,42 +339,41 @@ public class MybatisPlusProperties {
 
         private Boolean useGeneratedShortKey;
 
-        public void applyTo(Configuration target) {
-            PropertyMapper mapper = PropertyMapper.get().alwaysApplyingWhenNonNull();
-            mapper.from(getSafeRowBoundsEnabled()).to(target::setSafeRowBoundsEnabled);
-            mapper.from(getSafeResultHandlerEnabled()).to(target::setSafeResultHandlerEnabled);
-            mapper.from(getMapUnderscoreToCamelCase()).to(target::setMapUnderscoreToCamelCase);
-            mapper.from(getAggressiveLazyLoading()).to(target::setAggressiveLazyLoading);
-            mapper.from(getMultipleResultSetsEnabled()).to(target::setMultipleResultSetsEnabled);
-            mapper.from(getUseGeneratedKeys()).to(target::setUseGeneratedKeys);
-            mapper.from(getUseColumnLabel()).to(target::setUseColumnLabel);
-            mapper.from(getCacheEnabled()).to(target::setCacheEnabled);
-            mapper.from(getCallSettersOnNulls()).to(target::setCallSettersOnNulls);
-            mapper.from(getUseActualParamName()).to(target::setUseActualParamName);
-            mapper.from(getReturnInstanceForEmptyRow()).to(target::setReturnInstanceForEmptyRow);
-            mapper.from(getShrinkWhitespacesInSql()).to(target::setShrinkWhitespacesInSql);
-            mapper.from(getNullableOnForEach()).to(target::setNullableOnForEach);
-            mapper.from(getArgNameBasedConstructorAutoMapping()).to(target::setArgNameBasedConstructorAutoMapping);
-            mapper.from(getLazyLoadingEnabled()).to(target::setLazyLoadingEnabled);
-            mapper.from(getLogPrefix()).to(target::setLogPrefix);
-            mapper.from(getLazyLoadTriggerMethods()).to(target::setLazyLoadTriggerMethods);
-            mapper.from(getDefaultStatementTimeout()).to(target::setDefaultStatementTimeout);
-            mapper.from(getDefaultFetchSize()).to(target::setDefaultFetchSize);
-            mapper.from(getLocalCacheScope()).to(target::setLocalCacheScope);
-            mapper.from(getJdbcTypeForNull()).to(target::setJdbcTypeForNull);
-            mapper.from(getDefaultResultSetType()).to(target::setDefaultResultSetType);
-            mapper.from(getDefaultExecutorType()).to(target::setDefaultExecutorType);
-            mapper.from(getAutoMappingBehavior()).to(target::setAutoMappingBehavior);
-            mapper.from(getAutoMappingUnknownColumnBehavior()).to(target::setAutoMappingUnknownColumnBehavior);
-            mapper.from(getVariables()).to(target::setVariables);
-            mapper.from(getLogImpl()).to(target::setLogImpl);
-            mapper.from(getVfsImpl()).to(target::setVfsImpl);
-            mapper.from(getDefaultSqlProviderType()).to(target::setDefaultSqlProviderType);
-            mapper.from(getConfigurationFactory()).to(target::setConfigurationFactory);
-            mapper.from(getDefaultEnumTypeHandler()).to(target::setDefaultEnumTypeHandler);
-            mapper.from(getDefaultScriptingLanguageDriver()).to(target::setDefaultScriptingLanguage);
-            mapper.from(getDatabaseId()).to(target::setDatabaseId);
-            mapper.from(getUseGeneratedShortKey()).to(target::setUseGeneratedKeys);
+        public void applyTo(MybatisConfiguration target) {
+            Optional.ofNullable(getSafeRowBoundsEnabled()).ifPresent(target::setSafeRowBoundsEnabled);
+            Optional.ofNullable(getSafeResultHandlerEnabled()).ifPresent(target::setSafeResultHandlerEnabled);
+            Optional.ofNullable(getMapUnderscoreToCamelCase()).ifPresent(target::setMapUnderscoreToCamelCase);
+            Optional.ofNullable(getAggressiveLazyLoading()).ifPresent(target::setAggressiveLazyLoading);
+            Optional.ofNullable(getMultipleResultSetsEnabled()).ifPresent(target::setMultipleResultSetsEnabled);
+            Optional.ofNullable(getUseGeneratedKeys()).ifPresent(target::setUseGeneratedKeys);
+            Optional.ofNullable(getUseColumnLabel()).ifPresent(target::setUseColumnLabel);
+            Optional.ofNullable(getCacheEnabled()).ifPresent(target::setCacheEnabled);
+            Optional.ofNullable(getCallSettersOnNulls()).ifPresent(target::setCallSettersOnNulls);
+            Optional.ofNullable(getUseActualParamName()).ifPresent(target::setUseActualParamName);
+            Optional.ofNullable(getReturnInstanceForEmptyRow()).ifPresent(target::setReturnInstanceForEmptyRow);
+            Optional.ofNullable(getShrinkWhitespacesInSql()).ifPresent(target::setShrinkWhitespacesInSql);
+            Optional.ofNullable(getNullableOnForEach()).ifPresent(target::setNullableOnForEach);
+            Optional.ofNullable(getArgNameBasedConstructorAutoMapping()).ifPresent(target::setArgNameBasedConstructorAutoMapping);
+            Optional.ofNullable(getLazyLoadingEnabled()).ifPresent(target::setLazyLoadingEnabled);
+            Optional.ofNullable(getLogPrefix()).ifPresent(target::setLogPrefix);
+            Optional.ofNullable(getLazyLoadTriggerMethods()).ifPresent(target::setLazyLoadTriggerMethods);
+            Optional.ofNullable(getDefaultStatementTimeout()).ifPresent(target::setDefaultStatementTimeout);
+            Optional.ofNullable(getDefaultFetchSize()).ifPresent(target::setDefaultFetchSize);
+            Optional.ofNullable(getLocalCacheScope()).ifPresent(target::setLocalCacheScope);
+            Optional.ofNullable(getJdbcTypeForNull()).ifPresent(target::setJdbcTypeForNull);
+            Optional.ofNullable(getDefaultResultSetType()).ifPresent(target::setDefaultResultSetType);
+            Optional.ofNullable(getDefaultExecutorType()).ifPresent(target::setDefaultExecutorType);
+            Optional.ofNullable(getAutoMappingBehavior()).ifPresent(target::setAutoMappingBehavior);
+            Optional.ofNullable(getAutoMappingUnknownColumnBehavior()).ifPresent(target::setAutoMappingUnknownColumnBehavior);
+            Optional.ofNullable(getVariables()).ifPresent(target::setVariables);
+            Optional.ofNullable(getLogImpl()).ifPresent(target::setLogImpl);
+            Optional.ofNullable(getVfsImpl()).ifPresent(target::setVfsImpl);
+            Optional.ofNullable(getDefaultSqlProviderType()).ifPresent(target::setDefaultSqlProviderType);
+            Optional.ofNullable(getConfigurationFactory()).ifPresent(target::setConfigurationFactory);
+            Optional.ofNullable(getDefaultEnumTypeHandler()).ifPresent(target::setDefaultEnumTypeHandler);
+            Optional.ofNullable(getDefaultScriptingLanguageDriver()).ifPresent(target::setDefaultScriptingLanguage);
+            Optional.ofNullable(getDatabaseId()).ifPresent(target::setDatabaseId);
+            Optional.ofNullable(getUseGeneratedShortKey()).ifPresent(target::setUseGeneratedShortKey);
         }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -90,8 +90,21 @@ public enum DbType {
     PHOENIX("phoenix", "Phoenix HBase数据库"),
     /**
      * Gauss
+     * <p>
+     * 低版本为 zenith，为贡献者提供，非标准官方驱动，3.5.11 修改成 gauss
+     * </p>
+     *
+     * @see #GAUSS_DB
+     * @deprecated 3.5.13 使用官方标准名称
      */
-    GAUSS("zenith", "Gauss 数据库"),
+    @Deprecated
+    GAUSS("gauss", "Gauss 数据库"),
+    /**
+     * GaussDB
+     *
+     * @since 3.5.13
+     */
+    GAUSS_DB("gaussDB", "GaussDB 数据库"),
     /**
      * ClickHouse
      */
@@ -129,7 +142,7 @@ public enum DbType {
     /**
      * Sinodb
      */
-    SINODB("sinodb","星瑞格数据库"),
+    SINODB("sinodb", "星瑞格数据库"),
     /**
      * Oscar
      */
@@ -154,7 +167,7 @@ public enum DbType {
      * CUBRID
      */
     CUBRID("cubrid", "CUBRID数据库"),
-   /**
+    /**
      * SUNDB
      */
     SUNDB("sundb", "SUNDB数据库"),
@@ -207,6 +220,30 @@ public enum DbType {
      */
     PRESTO("presto", "Presto数据库"),
     /**
+     * derby
+     */
+    DERBY("derby", "Derby数据库"),
+    /**
+     * vastbase
+     */
+    VASTBASE("vastbase", "Vastbase数据库"),
+    /**
+     * goldendb
+     */
+    GOLDENDB("goldendb", "GoldenDB数据库"),
+    /**
+     * duckdb
+     */
+    DUCKDB("duckdb", "duckdb数据库"),
+    /**
+     * yasdb
+     */
+    YASDB("yasdb", "崖山数据库"),
+    /**
+     * Hadoop的数据仓库
+     */
+    HIVE2("hive2", "Hadoop数据仓库"),
+    /**
      * UNKNOWN DB
      */
     OTHER("other", "其他数据库");
@@ -232,5 +269,47 @@ public enum DbType {
             }
         }
         return OTHER;
+    }
+
+    public boolean mysqlSameType() {
+        return this == DbType.MYSQL
+            || this == DbType.MARIADB
+            || this == DbType.GBASE
+            || this == DbType.OSCAR
+            || this == DbType.XU_GU
+            || this == DbType.CLICK_HOUSE
+            || this == DbType.OCEAN_BASE
+            || this == DbType.CUBRID
+            || this == DbType.SUNDB
+            || this == DbType.GOLDENDB
+            || this == DbType.YASDB;
+    }
+
+    public boolean oracleSameType() {
+        return this == DbType.ORACLE
+            || this == DbType.DM
+            || this == DbType.GAUSS;
+    }
+
+    public boolean postgresqlSameType() {
+        return this == DbType.POSTGRE_SQL
+            || this == DbType.H2
+            || this == DbType.LEALONE
+            || this == DbType.SQLITE
+            || this == DbType.HSQL
+            || this == DbType.KINGBASE_ES
+            || this == DbType.PHOENIX
+            || this == DbType.SAP_HANA
+            || this == DbType.IMPALA
+            || this == DbType.HIGH_GO
+            || this == DbType.VERTICA
+            || this == DbType.REDSHIFT
+            || this == DbType.OPENGAUSS
+            || this == DbType.TDENGINE
+            || this == DbType.UXDB
+            || this == DbType.GBASE8S_PG
+            || this == DbType.GBASE_8C
+            || this == DbType.VASTBASE
+            || this == DbType.DUCKDB;
     }
 }

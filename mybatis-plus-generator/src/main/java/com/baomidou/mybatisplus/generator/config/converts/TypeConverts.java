@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,8 @@ public class TypeConverts {
             case DM:
             case GAUSS:
                 return DmTypeConvert.INSTANCE;
+            case GAUSS_DB:
+                return GaussDBSqlTypeConvert.INSTANCE;
             case KINGBASE_ES:
                 return KingbaseESTypeConvert.INSTANCE;
             case OSCAR:

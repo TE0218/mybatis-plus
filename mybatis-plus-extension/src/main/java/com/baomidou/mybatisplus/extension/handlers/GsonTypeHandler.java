@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,7 +43,6 @@ public class GsonTypeHandler extends AbstractJsonTypeHandler<Object> {
         super(type, field);
     }
 
-
     @Override
     public Object parse(String json) {
         return getGson().fromJson(json, this.getFieldType());
@@ -55,14 +54,21 @@ public class GsonTypeHandler extends AbstractJsonTypeHandler<Object> {
     }
 
     public static Gson getGson() {
-        if (null == GSON) {
-            GSON = new Gson();
-        }
-        return GSON;
+        return GSON == null ? Instance.GSON  : GSON;
     }
 
     public static void setGson(Gson gson) {
         Assert.notNull(gson, "Gson should not be null");
         GsonTypeHandler.GSON = gson;
     }
+
+    /**
+     * @since 3.5.15
+     */
+    private static class Instance {
+
+         private static final Gson GSON = new Gson();
+
+    }
+
 }

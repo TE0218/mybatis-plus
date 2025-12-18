@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.lang.invoke.SerializedLambda;
 
 /**
- * Created by hcl at 2021/5/14
+ * @author HCL
+ * Created at 2021/5/14
  */
 @Slf4j
 public class ReflectLambdaMeta implements LambdaMeta {

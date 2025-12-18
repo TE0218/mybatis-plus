@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 /**
  * Collection工具类
@@ -118,8 +121,8 @@ public class CollectionUtils {
 
     /**
      * 用来过渡下Jdk1.8下ConcurrentHashMap的性能bug
-     * https://bugs.openjdk.java.net/browse/JDK-8161372
-     *
+     * <a href="https://bugs.openjdk.java.net/browse/JDK-8161372">JDK-8161372</a>
+     * <p>
      *  A temporary workaround for Java 8 ConcurrentHashMap#computeIfAbsent specific performance issue: JDK-8161372.</br>
      *  @see <a href="https://bugs.openjdk.java.net/browse/JDK-8161372">https://bugs.openjdk.java.net/browse/JDK-8161372</a>
      *
@@ -215,7 +218,7 @@ public class CollectionUtils {
     public static <K, V> List<V> getCollection(Map<K, V> map, Iterable<K> keys, Comparator<V> comparator) {
         Objects.requireNonNull(comparator);
         List<V> result = getCollection(map, keys);
-        Collections.sort(result, comparator);
+        result.sort(comparator);
         return result;
     }
 
@@ -232,4 +235,27 @@ public class CollectionUtils {
         return Collections.emptyList();
     }
 
+    /**
+     * 切割集合为多个集合
+     * @param entityList 数据集合
+     * @param batchSize 每批集合的大小
+     * @return 切割后的多个集合
+     * @param <T> 数据类型
+     */
+    public static <T> List<List<T>> split(Collection<T> entityList, int batchSize) {
+        if (isEmpty(entityList)) {
+            return Collections.emptyList();
+        }
+        Assert.isFalse(batchSize < 1, "batchSize must not be less than one");
+        final Iterator<T> iterator = entityList.iterator();
+        final List<List<T>> results = new ArrayList<>(entityList.size() / batchSize);
+        while (iterator.hasNext()) {
+            final List<T> list = IntStream.range(0, batchSize).filter(x -> iterator.hasNext())
+                .mapToObj(i -> iterator.next()).collect(Collectors.toList());
+            if (!list.isEmpty()) {
+                results.add(list);
+            }
+        }
+        return results;
+    }
 }

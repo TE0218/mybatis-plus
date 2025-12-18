@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,13 +22,14 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * SQL 表名解析
  * <p>
- * <a href="https://github.com/mnadeem/sql-table-name-parser">...</a>
+ * <a href="https://github.com/mnadeem/sql-table-name-parser">sql-table-name-parser</a>
  * <p>
  * Ultra light, Ultra fast parser to extract table name out SQLs, supports oracle dialect SQLs as well.
  * USE: new TableNameParser(sql).tables()
@@ -41,7 +42,9 @@ public final class TableNameParser {
     private static final String TOKEN_SET = "set";
     private static final String TOKEN_OF = "of";
     private static final String TOKEN_DUAL = "dual";
+    private static final String IGNORE = "ignore";
     private static final String TOKEN_DELETE = "delete";
+    private static final String TOKEN_UPDATE = "update";
     private static final String TOKEN_CREATE = "create";
     private static final String TOKEN_INDEX = "index";
 
@@ -56,6 +59,13 @@ public final class TableNameParser {
 
     private static final List<String> concerned = Arrays.asList(KEYWORD_TABLE, KEYWORD_INTO, KEYWORD_JOIN, KEYWORD_USING, KEYWORD_UPDATE, KEYWORD_STRAIGHT_JOIN);
     private static final List<String> ignored = Arrays.asList(StringPool.LEFT_BRACKET, TOKEN_SET, TOKEN_OF, TOKEN_DUAL);
+
+    /**
+     * 索引类型
+     *
+     * @since 3.5.11
+     */
+    private static final Set<String> INDEX_TYPES = new HashSet<>(Arrays.asList("UNIQUE", "FULLTEXT", "SPATIAL", "CLUSTERED", "NONCLUSTERED"));
 
     /**
      * 该表达式会匹配 SQL 中不是 SQL TOKEN 的部分，比如换行符，注释信息，结尾的 {@code ;} 等。
@@ -94,9 +104,16 @@ public final class TableNameParser {
         int index = 0;
         String first = tokens.get(index).getValue();
         if (isOracleSpecialDelete(first, tokens, index)) {
-            visitNameToken(tokens.get(index + 1), visitor);
+            visitNameToken(safeGetToken(index + 1), visitor);
         } else if (isCreateIndex(first, tokens, index)) {
-            visitNameToken(tokens.get(index + 4), visitor);
+            String value = tokens.get(index + 4).getValue();
+            if("ON".equalsIgnoreCase(value)) {
+                visitNameToken(safeGetToken(index + 5), visitor);
+            } else {
+                visitNameToken(safeGetToken(index + 4), visitor);
+            }
+        } else if (isCreateTableIfNotExist(first, tokens, index)) {
+            visitNameToken(safeGetToken(index + 5), visitor);
         } else {
             while (hasMoreTokens(tokens, index)) {
                 String current = tokens.get(index++).getValue();
@@ -107,11 +124,26 @@ public final class TableNameParser {
                 } else if (concerned.contains(current.toLowerCase())) {
                     if (hasMoreTokens(tokens, index)) {
                         SqlToken next = tokens.get(index++);
+                        if (TOKEN_UPDATE.equalsIgnoreCase(current)
+                            && IGNORE.equalsIgnoreCase(next.getValue())) {
+                            next = tokens.get(index++);
+                        }
                         visitNameToken(next, visitor);
                     }
                 }
             }
         }
+    }
+
+    /**
+     * 安全访问获取SqlToken
+     *
+     * @param index 索引
+     * @return 超出索引返回 null，否则返回SqlToken
+     * @since 3.5.11
+     */
+    private SqlToken safeGetToken(int index) {
+        return index < tokens.size() ? tokens.get(index) : null;
     }
 
     /**
@@ -165,11 +197,27 @@ public final class TableNameParser {
         return false;
     }
 
+    // CREATE INDEX temp_name_idx ON table1(name) NOLOGGING PARALLEL (DEGREE 8);
+    // CREATE FULLTEXT INDEX ft_users_content ON users(content);
     private boolean isCreateIndex(String current, List<SqlToken> tokens, int index) {
-        index++; // Point to next token
-        if (TOKEN_CREATE.equalsIgnoreCase(current) && hasIthToken(tokens, index)) {
-            String next = tokens.get(index).getValue();
+        if (TOKEN_CREATE.equalsIgnoreCase(current) && hasMoreTokens(tokens, index + 4)) {
+            String next = tokens.get(index + 1).getValue();
+            if (INDEX_TYPES.contains(next.toUpperCase())) {
+                next = tokens.get(index + 2).getValue();
+            }
             return TOKEN_INDEX.equalsIgnoreCase(next);
+        }
+        return false;
+    }
+
+    //create table if not exists `user_info`
+    private boolean isCreateTableIfNotExist(String current, List<SqlToken> tokens, int index) {
+        if (TOKEN_CREATE.equalsIgnoreCase(current) && hasMoreTokens(tokens, index + 5)) {
+            StringBuilder tableIfNotExist = new StringBuilder();
+            for (int i = index; i <= index + 4; i++) {
+                tableIfNotExist.append(tokens.get(i).getValue());
+            }
+            return "createtableifnotexists".equalsIgnoreCase(tableIfNotExist.toString());
         }
         return false;
     }
@@ -189,6 +237,9 @@ public final class TableNameParser {
         return false;
     }
 
+    /**
+     * @deprecated 3.5.11 建议使用 {@link #hasMoreTokens(List, int)} 判断
+     */
     private static boolean hasIthToken(List<SqlToken> tokens, int currentIndex) {
         return hasMoreTokens(tokens, currentIndex) && tokens.size() > currentIndex + 3;
     }
@@ -260,9 +311,11 @@ public final class TableNameParser {
     }
 
     private static void visitNameToken(SqlToken token, TableNameVisitor visitor) {
-        String value = token.getValue().toLowerCase();
-        if (!ignored.contains(value)) {
-            visitor.visit(token);
+        if (token != null) {
+            String value = token.getValue().toLowerCase();
+            if (!ignored.contains(value)) {
+                visitor.visit(token);
+            }
         }
     }
 

@@ -26,3 +26,7 @@ html
 gradle/
 gradlew
 gradlew.bat
+
+# kotlin
+.kotlin
+/mybatis-plus-extension/test.db

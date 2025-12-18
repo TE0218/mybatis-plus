@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -139,7 +139,7 @@ public class AutoGenerator {
      *
      * @param globalConfig 全局配置
      * @return this
-     * @see 3.5.0
+     * @since  3.5.0
      */
     public AutoGenerator global(@NotNull GlobalConfig globalConfig) {
         this.globalConfig = globalConfig;
@@ -171,7 +171,7 @@ public class AutoGenerator {
      * @param templateEngine 模板引擎
      */
     public void execute(AbstractTemplateEngine templateEngine) {
-        logger.debug("==========================准备生成文件...==========================");
+        logger.debug("==========================Ready to generate the file...==========================");
         // 初始化配置
         if (null == config) {
             config = new ConfigBuilder(packageInfo, dataSource, strategy, template, globalConfig, injection);
@@ -183,7 +183,7 @@ public class AutoGenerator {
         templateEngine.setConfigBuilder(config);
         // 模板引擎初始化执行文件输出
         templateEngine.init(config).batchOutput().open();
-        logger.debug("==========================文件生成完成！！！==========================");
+        logger.debug("==========================The file is generated！！！==========================");
     }
 
     /**

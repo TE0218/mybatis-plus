@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +21,9 @@ import com.baomidou.mybatisplus.core.toolkit.StringPool;
 /**
  * 基于 {@link SerializedLambda} 创建的元信息
  * <p>
- * Create by hcl at 2021/7/7
+ *
+ * @author HCL
+ * Create at 2021/7/7
  */
 public class ShadowLambdaMeta implements LambdaMeta {
     private final SerializedLambda lambda;

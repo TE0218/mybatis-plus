@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,6 @@ import com.baomidou.mybatisplus.generator.util.ClassUtils;
 import lombok.Getter;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -38,8 +36,6 @@ import java.util.Map;
  * @since 3.5.0
  */
 public class Controller implements ITemplate {
-
-    private final static Logger LOGGER = LoggerFactory.getLogger(Controller.class);
 
     private Controller() {
     }
@@ -200,7 +196,6 @@ public class Controller implements ITemplate {
          */
         @Deprecated
         public Builder fileOverride() {
-            LOGGER.warn("fileOverride方法后续会删除，替代方法为enableFileOverride方法");
             this.controller.fileOverride = true;
             return this;
         }

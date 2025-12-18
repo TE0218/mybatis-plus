@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,10 +48,10 @@ public class DefaultSqlInjector extends AbstractSqlInjector {
             .add(new SelectList());
         if (tableInfo.havePK()) {
             builder.add(new DeleteById())
-                .add(new DeleteBatchByIds())
+                .add(new DeleteByIds())
                 .add(new UpdateById())
                 .add(new SelectById())
-                .add(new SelectBatchByIds());
+                .add(new SelectByIds());
         } else {
             logger.warn(String.format("%s ,Not found @TableId annotation, Cannot use Mybatis-Plus 'xxById' Method.",
                 tableInfo.getEntityType()));

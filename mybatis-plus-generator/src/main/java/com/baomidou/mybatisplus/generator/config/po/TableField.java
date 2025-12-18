@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,10 +27,16 @@ import com.baomidou.mybatisplus.generator.config.rules.NamingStrategy;
 import com.baomidou.mybatisplus.generator.fill.Column;
 import com.baomidou.mybatisplus.generator.fill.Property;
 import com.baomidou.mybatisplus.generator.jdbc.DatabaseMetaDataWrapper;
+import com.baomidou.mybatisplus.generator.model.AnnotationAttributes;
 import org.apache.ibatis.type.JdbcType;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * 表字段信息
@@ -58,7 +64,7 @@ public class TableField {
     /**
      * 字段名称
      */
-    private String name;
+    private final String name;
 
     /**
      * 字段类型（已弃用，使用 {@link #columnType} 代替）
@@ -128,6 +134,20 @@ public class TableField {
     private final GlobalConfig globalConfig;
 
     /**
+     * 字段注解
+     *
+     * @since 3.5.10
+     */
+    private final List<AnnotationAttributes> annotationAttributesList = new ArrayList<>();
+
+    /**
+     * 字段注解处理
+     *
+     * @since 3.5.11
+     */
+    private Function<List<? extends AnnotationAttributes>, List<AnnotationAttributes>> annotationAttributesFunction;
+
+    /**
      * 构造方法
      *
      * @param configBuilder 配置构建
@@ -148,10 +168,24 @@ public class TableField {
      * @param propertyName 属性名
      * @param columnType   字段类型
      * @return this
+     * @see #setColumnType(IColumnType)
+     * @see #setPropertyName(String)
      * @since 3.5.0
+     * @deprecated 3.5.15
      */
+    @Deprecated
     public TableField setPropertyName(@NotNull String propertyName, @NotNull IColumnType columnType) {
-        this.columnType = columnType;
+        return setColumnType(columnType).setPropertyName(propertyName);
+    }
+
+    /**
+     * 设置属性名称
+     *
+     * @param propertyName 属性名
+     * @return this
+     * @since 3.5.15
+     */
+    public TableField setPropertyName(@NotNull String propertyName) {
         if (entity.isBooleanColumnRemoveIsPrefix()
             && "boolean".equalsIgnoreCase(this.getPropertyType()) && propertyName.startsWith("is")) {
             this.convert = true;
@@ -174,6 +208,19 @@ public class TableField {
             }
         }
         this.propertyName = propertyName;
+        return this;
+    }
+
+
+    /**
+     * 指定字段类型
+     *
+     * @param columnType 字段类型
+     * @return this
+     * @since 3.5.15
+     */
+    public TableField setColumnType(@NotNull IColumnType columnType) {
+        this.columnType = columnType;
         return this;
     }
 
@@ -267,7 +314,8 @@ public class TableField {
     }
 
     public TableField setComment(String comment) {
-        this.comment = this.globalConfig.isSwagger()
+        //TODO 待重构此处
+        this.comment = (this.globalConfig.isSwagger() || this.globalConfig.isSpringdoc())
             && StringUtils.isNotBlank(comment) ? comment.replace("\"", "\\\"") : comment;
         return this;
     }
@@ -351,6 +399,57 @@ public class TableField {
     }
 
     /**
+     * 获取实体配置信息
+     *
+     * @return 实体配置信息
+     * @since 3.5.10
+     */
+    public Entity getEntity() {
+        return this.entity;
+    }
+
+    /**
+     * 添加字段注解属性
+     *
+     * @param annotationAttributesList 注解属性集合
+     * @since 3.5.10
+     */
+    public void addAnnotationAttributesList(@NotNull List<AnnotationAttributes> annotationAttributesList) {
+        this.addAnnotationAttributesList(annotationAttributesList, null);
+    }
+
+    /**
+     * @param annotationAttributesList 注解属性集合
+     * @since 3.5.11
+     */
+    public void addAnnotationAttributesList(@NotNull List<AnnotationAttributes> annotationAttributesList, Function<List<? extends AnnotationAttributes>, List<AnnotationAttributes>> annotationAttributesFunction) {
+        this.annotationAttributesList.addAll(annotationAttributesList);
+        this.annotationAttributesFunction = annotationAttributesFunction;
+    }
+
+    /**
+     * 添加字段注解属性
+     *
+     * @param annotationAttributes 注解属性
+     * @since 3.5.10
+     */
+    public void addAnnotationAttributesList(@NotNull AnnotationAttributes annotationAttributes) {
+        this.annotationAttributesList.add(annotationAttributes);
+    }
+
+    /**
+     * 获取字段注解属性(默认按{@link AnnotationAttributes#getDisplayName()}长度进行升序)
+     *
+     * @return 字段注解属性
+     * @since 3.5.10
+     */
+    public List<AnnotationAttributes> getAnnotationAttributesList() {
+        return annotationAttributesFunction != null ? annotationAttributesFunction.apply(this.annotationAttributesList) : this.annotationAttributesList.stream()
+            .sorted(Comparator.comparingInt(s -> s.getDisplayName().length()))
+            .collect(Collectors.toList());
+    }
+
+    /**
      * 元数据信息
      *
      * @author nieqiurong 2021/2/8
@@ -405,6 +504,13 @@ public class TableField {
          */
         private String typeName;
 
+        /**
+         * 是否为生成列
+         *
+         * @since 3.5.8
+         */
+        private boolean generatedColumn;
+
         public MetaInfo(DatabaseMetaDataWrapper.Column column, TableInfo tableInfo) {
             if (column != null) {
                 this.tableName = tableInfo.getName();
@@ -416,6 +522,7 @@ public class TableField {
                 this.scale = column.getScale();
                 this.jdbcType = column.getJdbcType();
                 this.typeName = column.getTypeName();
+                this.generatedColumn = column.isGeneratedColumn();
             }
         }
 
@@ -467,6 +574,7 @@ public class TableField {
                 ", scale=" + scale +
                 ", jdbcType=" + jdbcType +
                 ", typeName='" + typeName + '\'' +
+                ", generatedColumn=" + generatedColumn +
                 '}';
         }
     }

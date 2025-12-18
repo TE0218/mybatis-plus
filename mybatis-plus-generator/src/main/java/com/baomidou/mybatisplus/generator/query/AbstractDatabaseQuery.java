@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2023, baomidou (jobob@qq.com).
+ * Copyright (c) 2011-2025, baomidou (jobob@qq.com).
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -83,7 +83,7 @@ public abstract class AbstractDatabaseQuery implements IDatabaseQuery {
                 notExistTables.remove(tabInfo.getName().toLowerCase());
             }
             if (!notExistTables.isEmpty()) {
-                LOGGER.warn("表[{}]在数据库中不存在！！！", String.join(StringPool.COMMA, notExistTables.values()));
+                LOGGER.warn("Table [{}] does not exist in the database!", String.join(StringPool.COMMA, notExistTables.values()));
             }
             // 需要反向生成的表信息
             if (isExclude) {
